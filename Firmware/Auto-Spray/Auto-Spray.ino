@@ -1,6 +1,7 @@
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
+#include <Bounce2.h>
 
 // === ПИНЫ ===
 #define PIN_BUTTON 2         // D2 — кнопка (GND при нажатии)
@@ -25,11 +26,11 @@
 #define LED_BLINK_INTERVAL_MS 1000
 
 // === ФЛАГИ ПРОБУЖДЕНИЯ ===
-volatile bool wokeByButton = false;
 volatile bool wokeByLight = false;
 volatile bool wdtTriggered = false;
 
 // === СОСТОЯНИЕ ===
+static Bounce buttonDebouncer = Bounce();  // debounce для кнопки
 static bool isBlocked = false;
 static bool isAutoReady = false;
 static uint32_t blockStartTime = 0;    // секунды
@@ -43,9 +44,6 @@ static bool systemAwake = true;     // true = активен, false = в сон�
 
 ISR(INT0_vect) {
   wokeByLight = true;
-}
-ISR(INT1_vect) {
-  wokeByButton = true;
 }
 ISR(WDT_vect) {
   wdtTriggered = true;
@@ -214,9 +212,13 @@ void setup() {
   digitalWrite(PIN_LED_READY, LOW);
   digitalWrite(PIN_BUZZER, LOW);
 
-  // Прерывания по спаду (если модуль: свет = HIGH, темнота = LOW)
-  EICRA = _BV(ISC01) | _BV(ISC11);  // по спаду
-  EIMSK = _BV(INTF0) | _BV(INTF1);
+  // Настройка Bounce2 для кнопки
+  buttonDebouncer.attach(PIN_BUTTON);
+  buttonDebouncer.interval(25);  // 25 мс debounce
+
+  // Прерывание по свету (D3)
+  EICRA = _BV(ISC01);  // по спаду (если свет = HIGH, темнота = LOW)
+  EIMSK = _BV(INTF0);
 
   // Сигнал включения
   digitalWrite(PIN_BUZZER, HIGH);
@@ -225,15 +227,17 @@ void setup() {
 }
 
 void loop() {
-  // Обработка пробуждения
-  if (wokeByButton) {
-    wokeByButton = false;
+  buttonDebouncer.update();
+
+  // Обработка нажатия кнопки
+  if (buttonDebouncer.fell()) {
     if (!isBlocked && digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
       performSpray();
       enterBlockedState();
     }
   }
 
+  // Обработка света
   if (wokeByLight) {
     wokeByLight = false;
     if (digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
