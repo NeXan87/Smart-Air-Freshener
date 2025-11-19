@@ -1,218 +1,260 @@
-const int photo = A1;     // фоторезистор
-const int motor = 2;      // привод распылителя
-const int button = 3;     // кнопка
-const int led_block = 4;  // светодиод блокировки (красный)
-const int auto_mode = 5;  // автоматический и ручный режимы
-const int led_work = 6;   // светодиод работы (зеленый)
-const int led_on = 7;     // светодиод готовности (синий)
-const int buzzer = 8;     // звуковой сигнал готовности
-const int photoD = 9;     // цифровой пин фоторезистора
-
-int raw = 0;                                       // переменная фоторезистора
-int stlk = 1;                                      // блокировка кнопки в течение 30 минут после срабатывания пшика по свету
-int chrg = 1;                                      // блокировка работы устройства с разряженными батарейками
-int btn = 1;                                       // блокировка нескольких пшиков при удержании кнопки
-int i, led = 1;                                    // индикация готовности пшика после выключения света
-int pht = 1;                                       // блокировака пшика по свету в течении 30 минут после нажатия на кнопку
-int buzz = 1;                                      // флаг пьезодинамика
-int statblk = 1;                                   // отключение счетчика stat
-int buzzblk = 1;                                   // блокировка пьезодинамика
-int stoptimer = 1;                                 // остановка таймера
-uint32_t stat = 1;                                 // управление шпиком
-uint32_t svet = 0;                                 // флаг управления готовности для пшика по свету
-uint32_t cMs, pMs1, blokTime, buzzTime, autoTime;  // счетчики времени по свету
-uint8_t Pshik = 0;                                 // разрешение пшика после получения готовности
-bool pshikBlock;                                   // флаг блокировки повторного пшика
-bool buzzBlock;                                    // флаг блокировки пьезодинамика
-bool autoReset;
-int ledState = 0;            // состояние светодиода
-int32_t previousMillis = 0;  // храним время последнего переключения светодиода
-int32_t interval = 3.9065;   // интервал между включение/выключением светодиода ожидания (1 секунда)
-uint32_t Timer_FVT = 0;
-int autoState;
-
-#include <avr/power.h>
 #include <avr/sleep.h>
+#include <avr/wdt.h>
+#include <avr/interrupt.h>
+
+// === ПИНЫ ===
+#define PIN_BUTTON 2         // D2 — кнопка (GND при нажатии)
+#define PIN_LIGHT_DIGITAL 3  // D3 — цифровой выход датчика света (HIGH = светло)
+#define PIN_MOTOR 4
+#define PIN_LED_BLOCK 5         // red
+#define PIN_AUTO_MODE_SWITCH 6  // LOW = автоматический режим включён
+#define PIN_LED_WORK 7          // green
+#define PIN_LED_READY 8         // blue
+#define PIN_BUZZER 9
+
+// === РЕЖИМ ===
+#define SPRAY_ON_TIMER_ONLY  // раскомментируйте для пшика сразу по таймеру
+
+// === КОНСТАНТЫ ===
+#define BLOCK_DURATION_SEC (30UL * 60UL)   // 30 минут
+#define AUTO_READY_DELAY_SEC (3UL * 60UL)  // 3 минуты
+#define SPRAY_PULSE_COUNT 2
+#define SPRAY_PULSE_DURATION_MS 4
+#define SPRAY_INTER_PULSE_DELAY_MS 10
+#define BUZZER_ON_DURATION_MS 300
+#define LED_BLINK_INTERVAL_MS 1000
+
+// === ФЛАГИ ПРОБУЖДЕНИЯ ===
+volatile bool wokeByButton = false;
+volatile bool wokeByLight = false;
+volatile bool wdtTriggered = false;
+
+// === СОСТОЯНИЕ ===
+static bool isBlocked = false;
+static bool isAutoReady = false;
+static uint32_t blockStartTime = 0;    // секунды
+static uint32_t lightOnStartTime = 0;  // секунды
+static uint32_t lastLedToggle = 0;     // миллисекунды
+static bool isBuzzerOn = false;
+static uint32_t buzzerOffTime = 0;  // миллисекунды
+static bool systemAwake = true;     // true = активен, false = в соне (логически)
+
+// === ПРЕРЫВАНИЯ ===
+
+ISR(INT0_vect) {
+  wokeByLight = true;
+}
+ISR(INT1_vect) {
+  wokeByButton = true;
+}
+ISR(WDT_vect) {
+  wdtTriggered = true;
+}
+
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+
+void setupWatchdogForBlocking() {
+  cli();
+  wdt_reset();
+  WDTCSR |= _BV(WDCE) | _BV(WDE);
+  WDTCSR = _BV(WDIE) | _BV(WDP2) | _BV(WDP1);  // 1 сек
+  sei();
+}
+
+void disableWatchdog() {
+  cli();
+  wdt_reset();
+  WDTCSR |= _BV(WDCE) | _BV(WDE);
+  WDTCSR = 0;
+  sei();
+}
+
+void sleepForever() {
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  sei();
+  sleep_cpu();
+  sleep_disable();
+  cli();
+}
+
+void performSpray() {
+  digitalWrite(PIN_LED_WORK, HIGH);
+  for (uint8_t i = 0; i < SPRAY_PULSE_COUNT; i++) {
+    digitalWrite(PIN_MOTOR, HIGH);
+    delay(SPRAY_PULSE_DURATION_MS);
+    digitalWrite(PIN_MOTOR, LOW);
+    if (i < SPRAY_PULSE_COUNT - 1) {
+      delay(SPRAY_INTER_PULSE_DELAY_MS);
+    }
+  }
+  digitalWrite(PIN_LED_WORK, LOW);
+}
+
+void enterBlockedState() {
+  isBlocked = true;
+  isAutoReady = false;
+  blockStartTime = millis() / 1000UL;
+  digitalWrite(PIN_BUZZER, LOW);
+  isBuzzerOn = false;
+  setupWatchdogForBlocking();  // включаем WDT для отсчёта блокировки
+}
+
+void updateLeds() {
+  uint32_t now = millis();
+  bool isLightOn = (digitalRead(PIN_LIGHT_DIGITAL) == HIGH);
+
+  // Синий LED
+  if (isAutoReady && isLightOn) {
+    digitalWrite(PIN_LED_READY, HIGH);
+  } else if (!isBlocked && isLightOn) {
+    if (now - lastLedToggle >= LED_BLINK_INTERVAL_MS) {
+      lastLedToggle = now;
+      digitalWrite(PIN_LED_READY, !digitalRead(PIN_LED_READY));
+    }
+  } else {
+    digitalWrite(PIN_LED_READY, LOW);
+  }
+
+  // Красный LED
+  if (isBlocked && isLightOn) {
+    if (now - lastLedToggle >= LED_BLINK_INTERVAL_MS) {
+      lastLedToggle = now;
+      digitalWrite(PIN_LED_BLOCK, !digitalRead(PIN_LED_BLOCK));
+    }
+  } else {
+    digitalWrite(PIN_LED_BLOCK, LOW);
+  }
+}
+
+void updateBuzzer() {
+  if (isBuzzerOn && millis() >= buzzerOffTime) {
+    digitalWrite(PIN_BUZZER, LOW);
+    isBuzzerOn = false;
+  }
+}
+
+void handleLightChange() {
+  bool isLightOn = (digitalRead(PIN_LIGHT_DIGITAL) == HIGH);
+  uint32_t nowSec = millis() / 1000UL;
+
+  if (isLightOn) {
+    // Свет включён — начинаем отсчёт
+    if (lightOnStartTime == 0) lightOnStartTime = nowSec;
+    uint32_t elapsed = nowSec - lightOnStartTime;
+    if (!isBlocked && elapsed >= AUTO_READY_DELAY_SEC && !isAutoReady) {
+      isAutoReady = true;
+#ifdef SPRAY_ON_TIMER_ONLY
+      performSpray();
+      enterBlockedState();
+#else
+      isBuzzerOn = true;
+      buzzerOffTime = millis() + BUZZER_ON_DURATION_MS;
+      digitalWrite(PIN_BUZZER, HIGH);
+#endif
+    }
+  } else {
+    // Свет выключен
+    lightOnStartTime = 0;
+#ifndef SPRAY_ON_TIMER_ONLY
+    if (isAutoReady && !isBlocked) {
+      performSpray();
+      enterBlockedState();
+    }
+#endif
+    isAutoReady = false;
+  }
+}
+
+// Проверяет, можно ли заснуть
+void goToSleepIfNeeded() {
+  bool isLightOn = (digitalRead(PIN_LIGHT_DIGITAL) == HIGH);
+  uint32_t nowSec = millis() / 1000UL;
+
+  // Если свет включён — не спим
+  if (isLightOn) return;
+
+  // Если есть блокировка — ждём её окончания
+  if (isBlocked) {
+    if (nowSec - blockStartTime < BLOCK_DURATION_SEC) {
+      return;  // ещё не время спать
+    } else {
+      isBlocked = false;
+      disableWatchdog();  // блокировка закончилась — выключаем WDT
+    }
+  }
+
+  // Свет выключен, блокировки нет → можно спать
+  digitalWrite(PIN_LED_READY, LOW);
+  digitalWrite(PIN_LED_BLOCK, LOW);
+  digitalWrite(PIN_BUZZER, LOW);
+  systemAwake = false;
+  sleepForever();  // засыпаем НАВСЕГДА, пока не прервут
+}
+
+// === SETUP / LOOP ===
 
 void setup() {
-  // Serial.begin(9600);
-  clock_prescale_set(clock_div_256);    // понижение частоты работы микроконтроллера до 1 Мгц для экономии заряда батареек
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);  // устанавливаем интересующий нас спящий режим
-  pinMode(photo, INPUT);
-  pinMode(auto_mode, INPUT);
-  pinMode(motor, OUTPUT);
-  pinMode(button, INPUT);
-  pinMode(led_block, OUTPUT);
-  pinMode(led_work, OUTPUT);
-  pinMode(led_on, OUTPUT);
-  pinMode(buzzer, OUTPUT);
-  pinMode(photoD, INPUT);
-  digitalWrite(motor, 0);
-  pshikBlock = false;
-  buzzBlock = false;
-  autoReset = true;
-  for (i = 1; i < 700; i++) {
-    digitalWrite(buzzer, 1);
-  }
-  if (i == 700)
-    digitalWrite(buzzer, 0);
+  // Отключаем периферию
+  PRR0 = _BV(PRTIM1) | _BV(PRTIM0) | _BV(PRUSART1) | _BV(PRSPI);
+  PRR1 = _BV(PRTIM3) | _BV(PRTIM4) | _BV(PRTWI);
+
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_LIGHT_DIGITAL, INPUT);
+  pinMode(PIN_MOTOR, OUTPUT);
+  pinMode(PIN_LED_BLOCK, OUTPUT);
+  pinMode(PIN_AUTO_MODE_SWITCH, INPUT_PULLUP);
+  pinMode(PIN_LED_WORK, OUTPUT);
+  pinMode(PIN_LED_READY, OUTPUT);
+  pinMode(PIN_BUZZER, OUTPUT);
+
+  digitalWrite(PIN_MOTOR, LOW);
+  digitalWrite(PIN_LED_BLOCK, LOW);
+  digitalWrite(PIN_LED_WORK, LOW);
+  digitalWrite(PIN_LED_READY, LOW);
+  digitalWrite(PIN_BUZZER, LOW);
+
+  // Прерывания по спаду (если модуль: свет = HIGH, темнота = LOW)
+  EICRA = _BV(ISC01) | _BV(ISC11);  // по спаду
+  EIMSK = _BV(INTF0) | _BV(INTF1);
+
+  // Сигнал включения
+  digitalWrite(PIN_BUZZER, HIGH);
+  delay(200);
+  digitalWrite(PIN_BUZZER, LOW);
 }
 
 void loop() {
-  cMs = millis();                         // текущее время
-  int buttonState = digitalRead(button);  // считывание значения с пина кнопки
-
-  if (cMs - Timer_FVT >= interval) {
-    raw = analogRead(photo);             // считывание значения с пина фоторезистора
-    autoState = digitalRead(auto_mode);  // считывание значения с пина ручного режима
-    Timer_FVT = millis();
-  }
-
-  if (stlk == 1 && btn == 1) {          // управление светодиодом готовности
-    if (raw < 350) {                    // если в туалете темно
-      digitalWrite(led_on, 0);          // выключаем светодиод разряда батареи
-    } else if (led == 0 && btn == 1) {  // если наступила готовность автоматического пшика
-      digitalWrite(led_on, 1);          // светодиод готовности горит постоянно
-    } else {
-      if (cMs - previousMillis > interval) {  // сохраняем время последнего переключения
-        previousMillis = cMs;
-        if (ledState == 0)  // если светодиод не горит, то зажигаем, и наоборот
-          ledState = 1;
-        else
-          ledState = 0;
-        digitalWrite(led_on, ledState);  // устанавливаем состояния выхода, чтобы включить или выключить светодиод
-      }
+  // Обработка пробуждения
+  if (wokeByButton) {
+    wokeByButton = false;
+    if (!isBlocked && digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
+      performSpray();
+      enterBlockedState();
     }
   }
 
-  if (stlk == 0 || btn == 0) {                // управление светодиодом блокировки
-    if (raw < 350) {                          // если в туалете темно
-      digitalWrite(led_block, 0);             // выключаем светодиод блокировки
-    } else {                                  // если светло
-      if (cMs - previousMillis > interval) {  // сохраняем время последнего переключения
-        previousMillis = cMs;
-        if (ledState == 0)  // если светодиод не горит, то зажигаем, и наоборот
-          ledState = 1;
-        else
-          ledState = 0;
-        digitalWrite(led_block, ledState);  // устанавливаем состояния выхода, чтобы включить или выключить светодиод
-      }
-    }
-  }
-  if (Pshik == 1) {                      // если автоматическое срабатывание пшикалки разрешено
-    if (buttonState == 1 && btn == 1) {  // после нажатия кнопки
-      led = 1;                           // отключить синий светодиод
-      btn = 0;                           // заблокировать кнопку
-      stoptimer = 0;                     // остановить таймер
-      autoReset = true;                  // запустить таймер блокировки повторного срабатывания на 30 минут
-      autoTime = cMs;
-    }
-  } else {
-    if (buttonState == 1 && btn == 1 && stlk == 1) {  // если кнопка нажата и не заблокирована
-      btn = 0;                                        // переключить флаг защиты повторных пшиков при удержании кнопки
-      pht = 0;                                        // заблокировать пшик по свету на 30 минут
-      buzzblk = 0;
-      digitalWrite(led_on, 0);    // выключаем светодиод готовности
-      digitalWrite(led_work, 1);  // включаем светодиод работы
-      digitalWrite(motor, 1);     // включаем пшик
-      delay(4);                   // ждем 800 миллисекунд
-      digitalWrite(motor, 0);     // выключаем пшик
-      delay(10);
-      digitalWrite(motor, 1);     // включаем пшик
-      delay(4);                   // ждем 800 миллисекунд
-      digitalWrite(motor, 0);     // выключаем пшик
-      digitalWrite(led_work, 0);  // выключаем светодиод работы
-      pshikBlock = true;          // запустить таймер блокировки повторного срабатывания на 30 минут
-      blokTime = cMs;
+  if (wokeByLight) {
+    wokeByLight = false;
+    if (digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
+      handleLightChange();
     }
   }
 
-  if (autoState == 1) {      // если включен автометический и ручной режимы
-    if (cMs - pMs1 > 0.1) {  // запускаем таймер отстчета готовности автоматического пшика
-      pMs1 = cMs;            // время опроса фотореле каждые 1 секунду
-      if (raw > 450) {       // если в туалете светло
-        svet++;              // запустить таймер
-      } else {               // если темно
-        svet = 0;            // обнулить таймер
-      }
-    }
-    if (svet == 530 && stoptimer == 1) {  // если свет включен 3 минуты и более
-      Pshik = 1;                          // включаем флаг разрешения пшика
-      led = 0;                            // включаем постоянное свечение светодиода готовности
-      buzz = 0;                           // включить флаг пьезодинамика
-      buzzBlock = true;
-      buzzTime = pMs1;  // запустить таймер выключения пьезодинамика
-    }
-    if (buzz == 0 && buzzblk == 1) {  // если флаг пьезодинамика включен
-      digitalWrite(buzzer, 1);        // включить пьезодинамик
-    } else {                          // или
-      digitalWrite(buzzer, 0);        // выключить пьезодинамик
-    }
-    if (raw < 350) {  // если в туалете темно
-      stoptimer = 1;  // запустить таймер
-    }
-
-    if (Pshik == 1) {  // если автоматическое срабатывание пшикалки разрешено
-      if (raw < 350 && stat <= 4294967295 && pht == 1 && statblk == 1)
-        stat++;          // если свет выключился, все блокировки выключены, запустить таймер отсчета
-      if (stat == 15) {  // после пары секунд
-        stat++;
-        digitalWrite(buzzer, 0);
-        digitalWrite(led_on, 0);    // выключаем светодиод готовности
-        digitalWrite(led_work, 1);  // включаем светодиод работы
-        digitalWrite(motor, 1);     // включаем привод
-        delay(4);                   // ждем 800 миллисекунд
-        digitalWrite(motor, 0);     // выключаем привод
-        delay(10);
-        digitalWrite(motor, 1);  // включаем пшик
-        delay(4);                // ждем 800 миллисекунд
-        digitalWrite(motor, 0);
-        digitalWrite(led_work, 0);  // выключаем светодиод работы
-        stlk = 0;                   // заблокировать кнопку на некоторое время
-        statblk = 0;                // отключить таймер stat
-        buzzblk = 0;
-        pshikBlock = true;  // запустить таймер блокировки повторного срабатывания на 30 минут
-        blokTime = cMs;
-      }
-    }
+  if (wdtTriggered) {
+    wdtTriggered = false;
+    setupWatchdogForBlocking();  // перезапуск WDT
   }
 
-  if (raw > 450 && cMs - blokTime > 3600) {  // если в туалете светло и время блокировки вышло
-    digitalWrite(led_block, 0);              // отключить светодиод блокировки
-    stat = 1;                                // разблокировать таймер
-    stlk = 1;                                // разблокировать кнопку
-    pht = 1;                                 // разблокировать автоматический пшик
-    statblk = 1;
-    buzzblk = 1;
+  // Обновление состояния (только если автоматический режим включён)
+  if (digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
+    updateLeds();
+    updateBuzzer();
   }
 
-  if (pshikBlock)  // если блокировка активна
-    if (cMs - blokTime > 3600) {
-      stlk = 1;   // разблокировать таймер
-      Pshik = 0;  // сбросить флаг готовности автоматического пшика
-      svet = 0;   // сбросить таймер готовности
-      led = 1;    // влючить мигание синим светодиодом
-      pshikBlock = false;
-    }
+  // Решение: спать или нет?
+  goToSleepIfNeeded();
 
-  if (buttonState == 0 && cMs - blokTime > 3600) {  // если кнопка не нажата и время блокировки прошло
-    btn = 1;                                        // разблокировать повторное нажатие
-    buzzblk = 1;                                    // отключить блокировку динамика
-  }
-
-  if (autoTime) {
-    if (cMs - autoTime > 3) {  // блокировка внопки после сброса таймера
-      Pshik = 0;               // сбросить флаг готовности автоматического пшика
-      svet = 0;                // сбросить таймер
-      btn = 1;                 // разблокировать кнопку
-      autoTime = false;
-    }
-  }
-
-  if (buzzBlock) {
-    if (pMs1 - buzzTime > 0.1) {
-      buzz = 1;  // включить динамик на 0,3 секунды
-      buzzBlock = false;
-    }
-  }
+  // Небольшая задержка, чтобы не грузить CPU (работает только когда свет включён)
+  delay(50);
 }
