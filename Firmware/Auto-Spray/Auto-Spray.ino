@@ -1,272 +1,246 @@
-#include <avr/sleep.h>
-#include <avr/wdt.h>
-#include <avr/interrupt.h>
-#include <Bounce2.h>
+/********************************************************************
+ * Smart Air Freshener – Li-ion Battery Version (3.3V)
+ * Platform: Arduino Pro Mini (ATmega328P 8MHz)
+ * Author: ChatGPT
+ ********************************************************************/
 
-// === ПИНЫ (для Pro Mini: только D2 и D3 поддерживают внешние прерывания) ===
-#define PIN_BUTTON            2   // D2 — кнопка (GND при нажатии)
-#define PIN_LIGHT_DIGITAL     3   // D3 — цифровой выход датчика света (HIGH = светло)
-#define PIN_MOTOR             4
-#define PIN_LED_BLOCK         5   // red
-#define PIN_AUTO_MODE_SWITCH  6   // LOW = автоматический режим включён
-#define PIN_LED_WORK          7   // green
-#define PIN_LED_READY         8   // blue
-#define PIN_BUZZER            9
+// -----------------------------------------------------------
+// ПИНЫ
+// -----------------------------------------------------------
+#define PIN_LIGHT 3     // Датчик света (HIGH = свет включён)
+#define PIN_BUTTON 2    // Кнопка ручного распыления (GND при нажатии)
+#define PIN_MOTOR 4     // Мотор распылителя (HIGH = включён)
+#define PIN_LED_R 5     // Красный светодиод (общий анод)
+#define PIN_LED_G 6     // Зелёный светодиод
+#define PIN_LED_B 7     // Синий светодиод
+#define PIN_MODE 8      // Переключатель режима (LOW = авто)
+#define PIN_BUZZER 9    // Пьезоизлучатель (HIGH = сигнал)
 
-// === РЕЖИМ ===
-#define SPRAY_ON_TIMER_ONLY   // раскомментируйте для пшика сразу по таймеру
+// -----------------------------------------------------------
+// ТАЙМИНГИ
+// -----------------------------------------------------------
+#define TIME_LIGHT_READY_MS (5UL * 1000UL)  // Время до READY (5 сек)
+#define TIME_BLOCK_MS (5UL * 1000UL)        // Время блокировки после распыления (5 сек)
+#define TIME_LED_BLINK_MS 600UL             // Период мигания LED
+#define TIME_READY_BEEP_MS 300UL            // Продолжительность короткого сигнала при READY
 
-// === КОНСТАНТЫ (все временные значения удвоены для 8 МГц) ===
-#define BLOCK_DURATION_SEC        (30UL * 60UL)        // 30 минут (без изменений)
-#define AUTO_READY_DELAY_SEC      (3UL * 60UL)         // 3 минуты (без изменений)
-#define SPRAY_PULSE_COUNT         2
-#define SPRAY_PULSE_DURATION_MS   2                    // 2 * 2 = 4 мс реального времени
-#define SPRAY_INTER_PULSE_DELAY_MS 5                    // 5 * 2 = 10 мс реального времени
-#define BUZZER_ON_DURATION_MS     150                  // 150 * 2 = 300 мс реального времени
-#define LED_BLINK_INTERVAL_MS     500                  // 500 * 2 = 1000 мс реального времени
+// -----------------------------------------------------------
+// ПАРАМЕТРЫ РАСПЫЛЕНИЯ
+// -----------------------------------------------------------
+#define SPRAY_PHASE1_MS 1000UL  // Длительность первого импульса
+#define SPRAY_PAUSE_MS 1000UL   // Пауза между импульсами
+#define SPRAY_PHASE2_MS 1000UL  // Длительность второго импульса
 
-// === ФЛАГИ ПРОБУЖДЕНИЯ ===
-volatile bool wokeByButton = false;
-volatile bool wokeByLight = false;
-volatile bool wdtTriggered = false;
+// -----------------------------------------------------------
+// АВТОМАТИЧЕСКИЕ НАСТРОЙКИ
+// -----------------------------------------------------------
+#define AUTO_SPRAY_ON_LIGHT_OFF true
+// true = распыление при выключении света, false = сразу после готовности
 
-// === СОСТАВНЫЕ ПЕРЕМЕННЫЕ ===
-static Bounce buttonDebouncer = Bounce(); // debounce для кнопки
-static bool isBlocked = false;
-static bool isAutoReady = false;
-static uint32_t blockStartTime = 0;      // секунды
-static uint32_t lightOnStartTime = 0;    // секунды
-static uint32_t lastLedToggle = 0;       // миллисекунды
-static bool isBuzzerOn = false;
-static uint32_t buzzerOffTime = 0;       // миллисекунды
-static bool systemAwake = true;          // true = активен, false = в соне (логически)
+// -----------------------------------------------------------
+// СОСТОЯНИЯ УСТРОЙСТВА
+// -----------------------------------------------------------
+enum State { STATE_IDLE, STATE_LIGHT_WAIT, STATE_READY, STATE_SPRAY, STATE_BLOCKED };
+State currentState = STATE_IDLE;
 
-// === ПРЕРЫВАНИЯ ===
+// -----------------------------------------------------------
+// LED (общий анод)
+// -----------------------------------------------------------
+enum LedColor { LED_RED_OFF, LED_RED_ON, LED_GREEN_OFF, LED_GREEN_ON, LED_BLUE_OFF, LED_BLUE_ON };
 
-ISR(INT0_vect) { // D2 — кнопка
-    wokeByButton = true;
+// -----------------------------------------------------------
+// ПЕРЕМЕННЫЕ ВРЕМЕНИ
+// -----------------------------------------------------------
+uint32_t tLightOn = 0, tBlockStart = 0, tBlink = 0;
+uint32_t tSpray = 0;
+uint8_t sprayPhase = 0;
+
+// -----------------------------------------------------------
+// ФУНКЦИИ
+// -----------------------------------------------------------
+void updateLed(LedColor red, LedColor green, LedColor blue) {
+  digitalWrite(PIN_LED_R, red == LED_RED_ON ? LOW : HIGH);
+  digitalWrite(PIN_LED_G, green == LED_GREEN_ON ? LOW : HIGH);
+  digitalWrite(PIN_LED_B, blue == LED_BLUE_ON ? LOW : HIGH);
 }
 
-ISR(INT1_vect) { // D3 — свет
-    wokeByLight = true;
+inline bool isLightOn() { return digitalRead(PIN_LIGHT) == HIGH; }
+inline bool isButtonPressed() { return digitalRead(PIN_BUTTON) == LOW; }
+inline bool isAutoModeEnabled() { return digitalRead(PIN_MODE) == LOW; }
+
+// -----------------------------------------------------------
+// РАСПЫЛЕНИЕ
+// -----------------------------------------------------------
+void startSpray() {
+  currentState = STATE_SPRAY;
+  sprayPhase = 0;
+  tSpray = millis();
 }
 
-ISR(WDT_vect) {
-    wdtTriggered = true;
-}
-
-// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
-
-void setupWatchdogForBlocking() {
-    cli();
-    wdt_reset();
-    WDTCSR |= _BV(WDCE) | _BV(WDE);
-    WDTCSR = _BV(WDIE) | _BV(WDP2) | _BV(WDP1); // 1 сек
-    sei();
-}
-
-void disableWatchdog() {
-    cli();
-    wdt_reset();
-    WDTCSR |= _BV(WDCE) | _BV(WDE);
-    WDTCSR = 0;
-    sei();
-}
-
-void sleepForever() {
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    sleep_enable();
-    sei();
-    sleep_cpu();
-    sleep_disable();
-    cli();
-}
-
-// Выполняет распыление с учётом частоты
-void performSpray() {
-    digitalWrite(PIN_LED_WORK, HIGH);
-
-    for (uint8_t i = 0; i < SPRAY_PULSE_COUNT; i++) {
-        digitalWrite(PIN_MOTOR, HIGH);
-        delay(SPRAY_PULSE_DURATION_MS);  // на 8 МГц — 2 мс * 2 = 4 мс реального времени
+bool runSpray() {
+  uint32_t now = millis();
+  switch (sprayPhase) {
+    case 0:
+      digitalWrite(PIN_MOTOR, HIGH);
+      if (now - tSpray >= SPRAY_PHASE1_MS) {
         digitalWrite(PIN_MOTOR, LOW);
-
-        if (i < SPRAY_PULSE_COUNT - 1) {
-            delay(SPRAY_INTER_PULSE_DELAY_MS);  // 5 мс * 2 = 10 мс
-        }
-    }
-
-    digitalWrite(PIN_LED_WORK, LOW);
+        sprayPhase = 1;
+        tSpray = now;
+      }
+      break;
+    case 1:
+      if (now - tSpray >= SPRAY_PAUSE_MS) {
+        sprayPhase = 2;
+        tSpray = now;
+      }
+      break;
+    case 2:
+      digitalWrite(PIN_MOTOR, HIGH);
+      if (now - tSpray >= SPRAY_PHASE2_MS) {
+        digitalWrite(PIN_MOTOR, LOW);
+        return true;
+      }
+      break;
+  }
+  return false;
 }
 
-void enterBlockedState() {
-    isBlocked = true;
-    isAutoReady = false;
-    blockStartTime = millis() / 1000UL;
-    digitalWrite(PIN_BUZZER, LOW);
-    isBuzzerOn = false;
-    setupWatchdogForBlocking(); // включаем WDT для отсчёта блокировки
-}
-
-void updateLeds() {
-    uint32_t now = millis();
-    bool isLightOn = (digitalRead(PIN_LIGHT_DIGITAL) == HIGH);
-
-    // Синий LED
-    if (isAutoReady && isLightOn) {
-        digitalWrite(PIN_LED_READY, HIGH);
-    } else if (!isBlocked && isLightOn) {
-        if (now - lastLedToggle >= LED_BLINK_INTERVAL_MS) {
-            lastLedToggle = now;
-            digitalWrite(PIN_LED_READY, !digitalRead(PIN_LED_READY));
-        }
-    } else {
-        digitalWrite(PIN_LED_READY, LOW);
-    }
-
-    // Красный LED
-    if (isBlocked && isLightOn) {
-        if (now - lastLedToggle >= LED_BLINK_INTERVAL_MS) {
-            lastLedToggle = now;
-            digitalWrite(PIN_LED_BLOCK, !digitalRead(PIN_LED_BLOCK));
-        }
-    } else {
-        digitalWrite(PIN_LED_BLOCK, LOW);
-    }
-}
-
-void updateBuzzer() {
-    if (isBuzzerOn && millis() >= buzzerOffTime) {
-        digitalWrite(PIN_BUZZER, LOW);
-        isBuzzerOn = false;
-    }
-}
-
-void handleLightChange() {
-    bool isLightOn = (digitalRead(PIN_LIGHT_DIGITAL) == HIGH);
-    uint32_t nowSec = millis() / 1000UL;
-
-    if (isLightOn) {
-        // Свет включён — начинаем отсчёт
-        if (lightOnStartTime == 0) lightOnStartTime = nowSec;
-        uint32_t elapsed = nowSec - lightOnStartTime;
-        if (!isBlocked && elapsed >= AUTO_READY_DELAY_SEC && !isAutoReady) {
-            isAutoReady = true;
-#ifdef SPRAY_ON_TIMER_ONLY
-            performSpray();
-            enterBlockedState();
-#else
-            isBuzzerOn = true;
-            buzzerOffTime = millis() + BUZZER_ON_DURATION_MS;
-            digitalWrite(PIN_BUZZER, HIGH);
-#endif
-        }
-    } else {
-        // Свет выключен
-        lightOnStartTime = 0;
-#ifndef SPRAY_ON_TIMER_ONLY
-        if (isAutoReady && !isBlocked) {
-            performSpray();
-            enterBlockedState();
-        }
-#endif
-        isAutoReady = false;
-    }
-}
-
-// Проверяет, можно ли заснуть
-void goToSleepIfNeeded() {
-    bool isLightOn = (digitalRead(PIN_LIGHT_DIGITAL) == HIGH);
-    uint32_t nowSec = millis() / 1000UL;
-
-    // Если свет включён — не спим
-    if (isLightOn) return;
-
-    // Если есть блокировка — ждём её окончания
-    if (isBlocked) {
-        if (nowSec - blockStartTime < BLOCK_DURATION_SEC) {
-            return; // ещё не время спать
-        } else {
-            isBlocked = false;
-            disableWatchdog(); // блокировка закончилась — выключаем WDT
-        }
-    }
-
-    // Свет выключен, блокировки нет → можно спать
-    digitalWrite(PIN_LED_READY, LOW);
-    digitalWrite(PIN_LED_BLOCK, LOW);
-    digitalWrite(PIN_BUZZER, LOW);
-    systemAwake = false;
-    sleepForever(); // засыпаем НАВСЕГДА, пока не прервут
-}
-
-// === SETUP / LOOP ===
-
+// -----------------------------------------------------------
+// SETUP
+// -----------------------------------------------------------
 void setup() {
-    // Отключаем периферию (только PRR для 328P)
-    PRR = _BV(PRTIM1) | _BV(PRTIM0) | _BV(PRUSART0) | _BV(PRSPI);
+  pinMode(PIN_LIGHT, INPUT);
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
+  pinMode(PIN_MODE, INPUT_PULLUP);
 
-    pinMode(PIN_BUTTON, INPUT_PULLUP);
-    pinMode(PIN_LIGHT_DIGITAL, INPUT);
-    pinMode(PIN_MOTOR, OUTPUT);
-    pinMode(PIN_LED_BLOCK, OUTPUT);
-    pinMode(PIN_AUTO_MODE_SWITCH, INPUT_PULLUP);
-    pinMode(PIN_LED_WORK, OUTPUT);
-    pinMode(PIN_LED_READY, OUTPUT);
-    pinMode(PIN_BUZZER, OUTPUT);
+  pinMode(PIN_MOTOR, OUTPUT);
+  digitalWrite(PIN_MOTOR, LOW);
 
-    digitalWrite(PIN_MOTOR, LOW);
-    digitalWrite(PIN_LED_BLOCK, LOW);
-    digitalWrite(PIN_LED_WORK, LOW);
-    digitalWrite(PIN_LED_READY, LOW);
-    digitalWrite(PIN_BUZZER, LOW);
+  pinMode(PIN_LED_R, OUTPUT);
+  pinMode(PIN_LED_G, OUTPUT);
+  pinMode(PIN_LED_B, OUTPUT);
 
-    // Настройка Bounce2 для кнопки
-    buttonDebouncer.attach(PIN_BUTTON);
-    buttonDebouncer.interval(12); // 12 * 2 = ~25 мс реального времени
+  pinMode(PIN_BUZZER, OUTPUT);
+  digitalWrite(PIN_BUZZER, LOW);
 
-    // Прерывания: D2 (INT0) — кнопка, D3 (INT1) — свет
-    EICRA = _BV(ISC01) | _BV(ISC11); // прерывание по спаду (LOW при нажатии/темноте)
-    EIMSK = _BV(INTF0) | _BV(INTF1); // разрешить INT0 и INT1
+  updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
 
-    // Сигнал включения
-    digitalWrite(PIN_BUZZER, HIGH);
-    delay(100); // 100 * 2 = ~200 мс
-    digitalWrite(PIN_BUZZER, LOW);
+  // Стартовый писк 1 секунда
+  digitalWrite(PIN_BUZZER, HIGH);
+  delay(1000);
+  digitalWrite(PIN_BUZZER, LOW);
 }
 
+// -----------------------------------------------------------
+// LOOP
+// -----------------------------------------------------------
 void loop() {
-    // Обработка пробуждения по кнопке
-    if (wokeByButton) {
-        wokeByButton = false;
-        if (!isBlocked && digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
-            performSpray();
-            enterBlockedState();
+  uint32_t now = millis();
+  bool isLight = isLightOn();
+  bool isAuto = isAutoModeEnabled();
+
+  // --------------------------
+  // Сброс таймера готовности при смене режима
+  // --------------------------
+  static bool wasAutoMode = false;
+
+  if (isAuto && !wasAutoMode && isLight) {
+    tLightOn = now;  // авто включен → сброс таймера
+  }
+
+  if (!isAuto && wasAutoMode && currentState == STATE_READY) {
+    currentState = STATE_LIGHT_WAIT; // READY → ручной → сброс
+    tLightOn = now;
+  }
+
+  wasAutoMode = isAuto;
+
+  // --------------------------
+  // Блокировка
+  // --------------------------
+  if (currentState == STATE_BLOCKED) {
+    if (isLight) {
+      if (now - tBlink >= TIME_LED_BLINK_MS) {
+        tBlink = now;
+        static bool isRedBlink = false;
+        isRedBlink = !isRedBlink;
+        updateLed(isRedBlink ? LED_RED_ON : LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+      }
+    } else {
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    }
+    if (now - tBlockStart >= TIME_BLOCK_MS) {
+      currentState = STATE_IDLE;
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    }
+    return;
+  }
+
+  // --------------------------
+  // Кнопка
+  // --------------------------
+  if (isButtonPressed() && currentState != STATE_SPRAY) {
+    startSpray();
+  }
+
+  // --------------------------
+  // Распыление
+  // --------------------------
+  if (currentState == STATE_SPRAY) {
+    updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
+    if (runSpray()) {
+      tBlockStart = now;
+      currentState = STATE_BLOCKED;
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    }
+    return;
+  }
+
+  // --------------------------
+  // Свет выключен
+  // --------------------------
+  if (!isLight) {
+    tBlink = now;
+    if (AUTO_SPRAY_ON_LIGHT_OFF && currentState == STATE_READY) startSpray();
+    else currentState = STATE_IDLE;
+    updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    return;
+  }
+
+  // --------------------------
+  // Свет включен
+  // --------------------------
+  switch (currentState) {
+    case STATE_IDLE:
+      tLightOn = now;
+      tBlink = now;
+      currentState = STATE_LIGHT_WAIT;
+      break;
+    case STATE_LIGHT_WAIT:
+      if (now - tLightOn < TIME_LIGHT_READY_MS) {
+        if (now - tBlink >= TIME_LED_BLINK_MS) {
+          tBlink = now;
+          static bool isBlueBlink = false;
+          isBlueBlink = !isBlueBlink;
+          updateLed(LED_RED_OFF, LED_GREEN_OFF, isBlueBlink ? LED_BLUE_ON : LED_BLUE_OFF);
         }
-    }
+      } else {
+        if (isAuto) {
+          currentState = STATE_READY;
+          updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_ON);
 
-    // Обработка света
-    if (wokeByLight) {
-        wokeByLight = false;
-        if (digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
-            handleLightChange();
+          digitalWrite(PIN_BUZZER, HIGH);
+          delay(TIME_READY_BEEP_MS);
+          digitalWrite(PIN_BUZZER, LOW);
+
+          if (!AUTO_SPRAY_ON_LIGHT_OFF) startSpray();
+        } else {
+          tLightOn = now; // ручной режим → сброс таймера
         }
-    }
-
-    if (wdtTriggered) {
-        wdtTriggered = false;
-        setupWatchdogForBlocking(); // перезапуск WDT
-    }
-
-    // Обновление состояния (только если автоматический режим включён)
-    if (digitalRead(PIN_AUTO_MODE_SWITCH) == LOW) {
-        updateLeds();
-        updateBuzzer();
-    }
-
-    // Решение: спать или нет?
-    goToSleepIfNeeded();
-
-    // Небольшая задержка, чтобы не грузить CPU (работает только когда свет включён)
-    delay(25); // 25 * 2 = ~50 мс
+      }
+      break;
+    case STATE_READY:
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_ON);
+      break;
+  }
 }
