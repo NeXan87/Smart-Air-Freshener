@@ -9,6 +9,10 @@
 #include "spray.h"
 #include "state.h"
 
+#if ENABLE_SLEEP_MODE
+#include "sleep.h"
+#endif
+
 // -----------------------------------------------------------
 // SETUP
 // -----------------------------------------------------------
@@ -41,6 +45,10 @@ void setup() {
 
   // Инициализация основной логики
   initStateMachine();
+
+#if ENABLE_SLEEP_MODE
+  initSleepMode();
+#endif
 }
 
 // -----------------------------------------------------------
@@ -48,4 +56,10 @@ void setup() {
 // -----------------------------------------------------------
 void loop() {
   updateStateMachine();
+
+#if ENABLE_SLEEP_MODE
+  bool lightOn = (digitalRead(PIN_LIGHT) == HIGH);
+  bool isBlocked = (currentState == STATE_BLOCKED);
+  maybeSleep(lightOn, isBlocked);
+#endif
 }

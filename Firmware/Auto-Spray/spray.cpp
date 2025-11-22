@@ -1,5 +1,5 @@
-#include "spray.h"
 #include "config.h"
+#include "spray.h"
 
 uint8_t sprayPhase = 0;
 uint32_t tSpray = 0;

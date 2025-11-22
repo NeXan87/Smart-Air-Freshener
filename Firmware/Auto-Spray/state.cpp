@@ -1,5 +1,5 @@
-#include "state.h"
 #include "config.h"
+#include "state.h"
 #include "leds.h"
 #include "spray.h"
 #include <Arduino.h>
