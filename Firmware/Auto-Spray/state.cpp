@@ -10,8 +10,11 @@ Bounce debouncedButton;
 uint32_t tLightOn = 0;
 uint32_t tBlockStart = 0;
 uint32_t tBlink = 0;
+uint32_t buttonPressStartTime = 0;
+uint32_t tBeepStart = 0;
 
 bool wasAutoMode = false;
+bool buttonPressed = false;
 
 inline bool isLightOn() {
   return digitalRead(PIN_LIGHT) == HIGH;
@@ -26,7 +29,7 @@ inline bool isAutoModeEnabled() {
 void initStateMachine() {
   currentState = STATE_IDLE;
   debouncedButton.attach(PIN_BUTTON, INPUT_PULLUP);
-  debouncedButton.interval(25);
+  debouncedButton.interval(50);
 }
 
 void updateStateMachine() {
@@ -35,6 +38,25 @@ void updateStateMachine() {
   bool isAuto = isAutoModeEnabled();
 
   debouncedButton.update();
+
+  // --------------------------
+  // ПИСК ПРИ СБРОСЕ БЛОКИРОВКИ
+  // --------------------------
+  if (currentState == STATE_RESET_BEEP) {
+    if (now - tBeepStart >= RESET_BEEP_DURATION_MS) {
+      digitalWrite(PIN_BUZZER, LOW);  // выключаем писк
+      currentState = STATE_IDLE;      // возвращаемся в обычный режим
+    }
+    return;  // не обрабатываем другие события во время писка
+  }
+
+  if (debouncedButton.fell()) {
+    buttonPressed = true;
+    buttonPressStartTime = now;
+  }
+  if (debouncedButton.rose()) {
+    buttonPressed = false;
+  }
 
   // --- Смена режима ---
   if (isAuto && !wasAutoMode && isLight) tLightOn = now;
@@ -63,6 +85,15 @@ void updateStateMachine() {
       currentState = STATE_IDLE;
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     }
+
+    else if (buttonPressed && (now - buttonPressStartTime >= BLOCK_RESET_HOLD_MS)) {
+      currentState = STATE_RESET_BEEP;
+      tBeepStart = now;
+      digitalWrite(PIN_BUZZER, HIGH);  // включаем писк
+      buttonPressed = false;
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);  // гасим LED
+    }
+
     return;
   }
 
