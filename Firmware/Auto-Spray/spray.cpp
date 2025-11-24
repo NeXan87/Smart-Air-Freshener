@@ -7,22 +7,22 @@ void startSpray() {
   digitalWrite(PIN_MOTOR_IN2, LOW);
 }
 
-bool runSpray() {
+void runSpray() {
   for (uint8_t i = 0; i < SPRAY_PULSE_COUNT; i++) {
-    // Включаем мотор вперёд
     digitalWrite(PIN_MOTOR_IN1, HIGH);
     digitalWrite(PIN_MOTOR_IN2, LOW);
-    
     delay(SPRAY_ON_MS);
-    
-    // Останавливаем
+
     digitalWrite(PIN_MOTOR_IN1, LOW);
     digitalWrite(PIN_MOTOR_IN2, LOW);
-    
-    // Пауза между пшиками (кроме последнего)
-    if (i < SPRAY_PULSE_COUNT - 1) {
-      delay(SPRAY_OFF_MS);
-    }
+    if (SPRAY_OFF_MS > 0 && i < SPRAY_PULSE_COUNT - 1) delay(SPRAY_OFF_MS);
+
+    digitalWrite(PIN_MOTOR_IN1, LOW);
+    digitalWrite(PIN_MOTOR_IN2, HIGH);
+    delay(SPRAY_REVERSE_MS);
+
+    digitalWrite(PIN_MOTOR_IN1, LOW);
+    digitalWrite(PIN_MOTOR_IN2, LOW);
+    if (i < SPRAY_PULSE_COUNT - 1) delay(100);
   }
-  return true;
 }

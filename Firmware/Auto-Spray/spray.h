@@ -2,4 +2,4 @@
 #include <Arduino.h>
 
 void startSpray();
-bool runSpray();
+void runSpray();

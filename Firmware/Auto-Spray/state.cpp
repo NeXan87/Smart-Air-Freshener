@@ -37,17 +37,7 @@ void updateStateMachine() {
 
   button.update();
 
-  // --------------------------
-  // ПИСК ПРИ СБРОСЕ БЛОКИРОВКИ
-  // --------------------------
-  if (currentState == STATE_RESET_BEEP) {
-    if (now - tBeepStart >= RESET_BEEP_DURATION_MS) {
-      digitalWrite(PIN_BUZZER, LOW);  // выключаем писк
-      currentState = STATE_IDLE;      // возвращаемся в обычный режим
-    }
-    return;  // не обрабатываем другие события во время писка
-  }
-
+  // Обработка удержания кнопки (для сброса блокировки)
   if (button.fell()) {
     buttonPressed = true;
     buttonPressStartTime = now;
@@ -56,8 +46,21 @@ void updateStateMachine() {
     buttonPressed = false;
   }
 
+  // --------------------------
+  // ПИСК ПРИ СБРОСЕ БЛОКИРОВКИ
+  // --------------------------
+  if (currentState == STATE_RESET_BEEP) {
+    if (now - tBeepStart >= RESET_BEEP_DURATION_MS) {
+      digitalWrite(PIN_BUZZER, LOW);
+      currentState = STATE_IDLE;
+    }
+    return;
+  }
+
   // --- Смена режима ---
-  if (isAuto && !wasAutoMode && isLight) tLightOn = now;
+  if (isAuto && !wasAutoMode && isLight) {
+    tLightOn = now;
+  }
   if (!isAuto && wasAutoMode && currentState == STATE_READY) {
     currentState = STATE_LIGHT_WAIT;
     tLightOn = now;
@@ -79,43 +82,42 @@ void updateStateMachine() {
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     }
 
+    // Автоматический выход из блокировки
     if (now - tBlockStart >= TIME_BLOCK_MS) {
       currentState = STATE_IDLE;
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     }
-
+    // Сброс удержанием
     else if (buttonPressed && (now - buttonPressStartTime >= BLOCK_RESET_HOLD_MS)) {
       currentState = STATE_RESET_BEEP;
       tBeepStart = now;
-      digitalWrite(PIN_BUZZER, HIGH);  // включаем писк
+      digitalWrite(PIN_BUZZER, HIGH);
       buttonPressed = false;
-      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);  // гасим LED
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     }
 
     return;
   }
 
   // --------------------------
-  // КНОПКА
-  // --------------------------
-  if (button.fell()) {
-    if (currentState != STATE_SPRAY) {
-      currentState = STATE_SPRAY;
-      startSpray();
-    }
-  }
-
-  // --------------------------
-  // РАСПЫЛЕНИЕ
+  // РАСПЫЛЕНИЕ (единственное место, где запускается мотор)
   // --------------------------
   if (currentState == STATE_SPRAY) {
     updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
-    if (runSpray()) {
-      tBlockStart = now;
-      currentState = STATE_BLOCKED;
-      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
-    }
+    tBlockStart = millis(); 
+    runSpray();             
+    updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    currentState = STATE_BLOCKED;
     return;
+  }
+
+  // --------------------------
+  // КНОПКА: запуск ТОЛЬКО если не в блокировке и не в распылении
+  // --------------------------
+  if (button.fell()) {
+    if (currentState != STATE_BLOCKED) {
+      currentState = STATE_SPRAY;
+    }
   }
 
   // --------------------------
@@ -124,8 +126,7 @@ void updateStateMachine() {
   if (!isLight) {
     tBlink = now;
     if (AUTO_SPRAY_ON_LIGHT_OFF && currentState == STATE_READY) {
-      currentState = STATE_SPRAY;
-      startSpray();
+      currentState = STATE_SPRAY;  // ← только состояние!
     } else {
       currentState = STATE_IDLE;
     }
@@ -160,8 +161,7 @@ void updateStateMachine() {
           digitalWrite(PIN_BUZZER, LOW);
 
           if (!AUTO_SPRAY_ON_LIGHT_OFF) {
-            currentState = STATE_SPRAY;
-            startSpray();
+            currentState = STATE_SPRAY;  // ← только состояние!
           }
         } else {
           tLightOn = now;
