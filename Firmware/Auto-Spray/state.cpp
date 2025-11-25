@@ -17,7 +17,15 @@ bool wasAutoMode = false;
 bool buttonPressed = false;
 
 inline bool isLightOn() {
-  return digitalRead(PIN_LIGHT) == LOW;
+  static uint32_t lastRead = 0;
+  static bool cachedValue = false;
+  uint32_t latestNow = millis();
+
+  if (latestNow - lastRead >= LIGHT_READ_INTERVAL_MS) {
+    cachedValue = (digitalRead(PIN_LIGHT) == LOW);
+    lastRead = latestNow;
+  }
+  return cachedValue;
 }
 
 inline bool isAutoModeEnabled() {
@@ -104,8 +112,8 @@ void updateStateMachine() {
   // --------------------------
   if (currentState == STATE_SPRAY) {
     updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
-    tBlockStart = millis(); 
-    runSpray();             
+    tBlockStart = millis();
+    runSpray();
     updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     currentState = STATE_BLOCKED;
     return;
