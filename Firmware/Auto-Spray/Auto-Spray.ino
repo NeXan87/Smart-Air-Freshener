@@ -33,11 +33,11 @@ void setup() {
   // Стартовая последовательность: 1 секунда писка + цикл цветов
   digitalWrite(PIN_BUZZER, HIGH);  // Включаем звук
   updateLed(LED_RED_ON, LED_GREEN_OFF, LED_BLUE_OFF);
-  delay(200);  // Красный
+  delay(TIME_STARTUP_DELAY_MS);  // Красный
   updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
-  delay(200);  // Зелёный
+  delay(TIME_STARTUP_DELAY_MS);  // Зелёный
   updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_ON);
-  delay(200);                                           // Синий
+  delay(TIME_STARTUP_DELAY_MS);                         // Синий
   digitalWrite(PIN_BUZZER, LOW);                        // Выключаем звук
   updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);  // Гасим LED
 

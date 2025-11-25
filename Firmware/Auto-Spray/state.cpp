@@ -38,7 +38,7 @@ void updateStateMachine() {
   button.update();
 
   // Обработка удержания кнопки (для сброса блокировки)
-  if (button.fell()) {
+  if (button.fell() && currentState == STATE_BLOCKED) {
     buttonPressed = true;
     buttonPressStartTime = now;
   }
@@ -117,6 +117,7 @@ void updateStateMachine() {
   if (button.fell()) {
     if (currentState != STATE_BLOCKED) {
       currentState = STATE_SPRAY;
+      buttonPressed = false;
     }
   }
 
@@ -126,7 +127,7 @@ void updateStateMachine() {
   if (!isLight) {
     tBlink = now;
     if (AUTO_SPRAY_ON_LIGHT_OFF && currentState == STATE_READY) {
-      currentState = STATE_SPRAY;  // ← только состояние!
+      currentState = STATE_SPRAY;
     } else {
       currentState = STATE_IDLE;
     }
