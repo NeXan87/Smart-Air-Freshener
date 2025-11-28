@@ -45,10 +45,18 @@ void updateStateMachine() {
 
   button.update();
 
-  // Обработка удержания кнопки (для сброса блокировки)
-  if (button.fell() && currentState == STATE_BLOCKED) {
-    buttonPressed = true;
-    buttonPressStartTime = now;
+  // --------------------------
+  // КНОПКА: запуск ТОЛЬКО если не в блокировке и не в распылении
+  // --------------------------
+  if (button.fell()) {
+    if (currentState == STATE_BLOCKED) {
+      buttonPressed = true;
+      buttonPressStartTime = now;
+    } else {
+      // Запуск пшика
+      currentState = STATE_SPRAY;
+      buttonPressed = false;  // сброс на всякий случай
+    }
   }
   if (button.rose()) {
     buttonPressed = false;
@@ -62,6 +70,22 @@ void updateStateMachine() {
       digitalWrite(PIN_BUZZER, LOW);
       currentState = STATE_IDLE;
     }
+    return;
+  }
+
+  // --------------------------
+  // РАСПЫЛЕНИЕ (единственное место, где запускается мотор)
+  // --------------------------
+  if (currentState == STATE_SPRAY) {
+    digitalWrite(PIN_MOTOR_POWER_EN, HIGH);
+    updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
+
+    tBlockStart = millis();
+    runSpray();
+
+    updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    digitalWrite(PIN_MOTOR_POWER_EN, LOW);
+    currentState = STATE_BLOCKED;
     return;
   }
 
@@ -105,32 +129,6 @@ void updateStateMachine() {
     }
 
     return;
-  }
-
-  // --------------------------
-  // РАСПЫЛЕНИЕ (единственное место, где запускается мотор)
-  // --------------------------
-  if (currentState == STATE_SPRAY) {
-    digitalWrite(PIN_MOTOR_POWER_EN, HIGH);
-    updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
-
-    tBlockStart = millis();
-    runSpray();
-    
-    updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
-    digitalWrite(PIN_MOTOR_POWER_EN, LOW);
-    currentState = STATE_BLOCKED;
-    return;
-  }
-
-  // --------------------------
-  // КНОПКА: запуск ТОЛЬКО если не в блокировке и не в распылении
-  // --------------------------
-  if (button.fell()) {
-    if (currentState != STATE_BLOCKED) {
-      currentState = STATE_SPRAY;
-      buttonPressed = false;
-    }
   }
 
   // --------------------------
