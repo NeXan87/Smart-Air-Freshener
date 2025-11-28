@@ -53,6 +53,11 @@ void setup() {
 #if ENABLE_SLEEP_MODE
   initSleepMode();
 #endif
+
+#if ACTIVITY_LED_ENABLED
+  pinMode(PIN_LED_BUILTIN, OUTPUT);
+  digitalWrite(PIN_LED_BUILTIN, LOW);
+#endif
 }
 
 // -----------------------------------------------------------
@@ -64,6 +69,16 @@ void loop() {
 #if ENABLE_SLEEP_MODE
   bool lightOn = (digitalRead(PIN_LIGHT) == HIGH);
   bool isBlocked = (currentState == STATE_BLOCKED);
+  bool canSleep = (!lightOn && !isBlocked);
+#else
+  bool canSleep = false;
+#endif
+
+#if ACTIVITY_LED_ENABLED
+  updateActivityLed(canSleep);
+#endif
+
+#if ENABLE_SLEEP_MODE
   maybeSleep(lightOn, isBlocked);
 #endif
 }
