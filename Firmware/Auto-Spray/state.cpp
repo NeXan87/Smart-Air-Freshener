@@ -14,6 +14,7 @@ uint32_t buttonPressStartTime = 0;
 uint32_t tBeepStart = 0;
 
 bool wasAutoMode = false;
+bool wasSpray = false;
 bool buttonPressed = false;
 
 inline bool isLightOn() {
@@ -49,13 +50,14 @@ void updateStateMachine() {
   // КНОПКА: запуск ТОЛЬКО если не в блокировке и не в распылении
   // --------------------------
   if (button.fell()) {
+    wasSpray = false;
+
     if (currentState == STATE_BLOCKED) {
       buttonPressed = true;
       buttonPressStartTime = now;
     } else {
-      // Запуск пшика
+      buttonPressed = false;
       currentState = STATE_SPRAY;
-      buttonPressed = false;  // сброс на всякий случай
     }
   }
   if (button.rose()) {
@@ -136,6 +138,8 @@ void updateStateMachine() {
   // --------------------------
   if (!isLight) {
     tBlink = now;
+    wasSpray = false;
+
     if (AUTO_SPRAY_ON_LIGHT_OFF && currentState == STATE_READY) {
       currentState = STATE_SPRAY;
     } else {
@@ -164,7 +168,7 @@ void updateStateMachine() {
           updateLed(LED_RED_OFF, LED_GREEN_OFF, blink ? LED_BLUE_ON : LED_BLUE_OFF);
         }
       } else {
-        if (isAuto) {
+        if (!wasSpray && isAuto) {
           currentState = STATE_READY;
           updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_ON);
           digitalWrite(PIN_BUZZER, HIGH);
@@ -172,7 +176,8 @@ void updateStateMachine() {
           digitalWrite(PIN_BUZZER, LOW);
 
           if (!AUTO_SPRAY_ON_LIGHT_OFF) {
-            currentState = STATE_SPRAY;  // ← только состояние!
+            currentState = STATE_SPRAY;
+            wasSpray = true;
           }
         } else {
           tLightOn = now;
