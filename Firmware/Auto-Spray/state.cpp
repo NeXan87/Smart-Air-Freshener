@@ -16,6 +16,7 @@ uint32_t tBeepStart = 0;
 bool wasAutoMode = false;
 bool wasSpray = false;
 bool buttonPressed = false;
+bool readyWasCanceledInThisSession = false;
 
 inline bool isLightOn() {
   static uint32_t lastRead = 0;
@@ -54,6 +55,11 @@ void updateStateMachine() {
     if (currentState == STATE_BLOCKED) {
       buttonPressed = true;
       buttonPressStartTime = now;
+    } else if (currentState == STATE_READY && isAutoModeEnabled()) {
+      buttonPressed = true;
+      readyWasCanceledInThisSession = true;
+      currentState = STATE_LIGHT_WAIT;
+      tLightOn = now;
     } else {
       buttonPressed = false;
       currentState = STATE_SPRAY;
@@ -138,6 +144,7 @@ void updateStateMachine() {
   if (!isLight) {
     tBlink = now;
     wasSpray = false;
+    readyWasCanceledInThisSession = false;
 
     if (AUTO_SPRAY_ON_LIGHT_OFF && currentState == STATE_READY) {
       currentState = STATE_SPRAY;
@@ -167,7 +174,7 @@ void updateStateMachine() {
           updateLed(LED_RED_OFF, LED_GREEN_OFF, blink ? LED_BLUE_ON : LED_BLUE_OFF);
         }
       } else {
-        if (!wasSpray && isAuto) {
+        if (!readyWasCanceledInThisSession && !wasSpray && isAuto) {
           currentState = STATE_READY;
           updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_ON);
           tone(PIN_BUZZER, 1000);
