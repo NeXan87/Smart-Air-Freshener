@@ -9,8 +9,16 @@
 
 void initSleepMode() {
   // Настройка прерываний: оба пина пробуждают из POWER_DOWN
-  attachInterrupt(digitalPinToInterrupt(PIN_BUTTON), [](){}, FALLING);
-  attachInterrupt(digitalPinToInterrupt(PIN_LIGHT),  [](){}, CHANGE);
+  attachInterrupt(
+    digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);
+
+#if USE_OPT3001
+  attachInterrupt(
+    digitalPinToInterrupt(PIN_LIGHT), []() {}, FALLING);
+#else
+  attachInterrupt(
+    digitalPinToInterrupt(PIN_LIGHT), []() {}, CHANGE);  // для LDR
+#endif
 }
 
 void maybeSleep(bool lightOn, bool isBlocked) {
@@ -23,8 +31,8 @@ void maybeSleep(bool lightOn, bool isBlocked) {
 
     set_sleep_mode(SLEEP_MODE_PWR_DOWN);
     sleep_enable();
-    sleep_cpu();        // МК засыпает здесь
-    sleep_disable();    // После пробуждения — продолжаем
+    sleep_cpu();      // МК засыпает здесь
+    sleep_disable();  // После пробуждения — продолжаем
 
     // Включаем АЦП обратно (на случай, если другие модули его используют)
     ADCSRA |= (1 << ADEN);

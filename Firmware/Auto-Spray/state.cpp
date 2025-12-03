@@ -20,11 +20,10 @@ bool buttonPressed = false;
 inline bool isLightOn() {
   static uint32_t lastRead = 0;
   static bool cachedValue = false;
-  uint32_t latestNow = millis();
-
-  if (latestNow - lastRead >= LIGHT_READ_INTERVAL_MS) {
+  uint32_t now = millis();
+  if (now - lastRead >= LIGHT_READ_INTERVAL_MS) {
     cachedValue = (digitalRead(PIN_LIGHT) == LOW);
-    lastRead = latestNow;
+    lastRead = now;
   }
   return cachedValue;
 }

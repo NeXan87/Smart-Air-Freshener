@@ -7,6 +7,7 @@
 #include "leds.h"
 #include "spray.h"
 #include "state.h"
+#include "opt3001.h"
 
 #if ENABLE_SLEEP_MODE
 #include "sleep.h"
@@ -34,7 +35,12 @@ void runStartupSequence() {
 // SETUP
 // -----------------------------------------------------------
 void setup() {
+#if USE_OPT3001
+  pinMode(PIN_LIGHT, INPUT_PULLUP);
+#else
   pinMode(PIN_LIGHT, INPUT);
+#endif
+
   pinMode(PIN_MODE, INPUT_PULLUP);
   pinMode(PIN_MOTOR_IN1, OUTPUT);
   pinMode(PIN_MOTOR_IN2, OUTPUT);
@@ -59,6 +65,10 @@ void setup() {
   pinMode(PIN_LED_BUILTIN, OUTPUT);
   digitalWrite(PIN_LED_BUILTIN, LOW);
 #endif
+
+#if USE_OPT3001
+  initOpt3001();
+#endif
 }
 
 // -----------------------------------------------------------
@@ -68,7 +78,7 @@ void loop() {
   updateStateMachine();
 
 #if ENABLE_SLEEP_MODE
-  bool lightOn = (digitalRead(PIN_LIGHT) == HIGH);
+  bool lightOn = isLightOn();
   bool isBlocked = (currentState == STATE_BLOCKED);
   bool canSleep = (!lightOn && !isBlocked);
 #else
