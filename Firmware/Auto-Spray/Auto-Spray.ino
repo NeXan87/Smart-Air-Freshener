@@ -56,10 +56,6 @@ void setup() {
   runStartupSequence();
   initStateMachine();
 
-#if ENABLE_SLEEP_MODE
-  initSleepMode();
-#endif
-
 #if ACTIVITY_LED_ENABLED
   pinMode(PIN_LED_BUILTIN, OUTPUT);
   digitalWrite(PIN_LED_BUILTIN, LOW);

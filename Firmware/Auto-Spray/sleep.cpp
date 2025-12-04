@@ -3,40 +3,30 @@
 #if ENABLE_SLEEP_MODE
 
 #include "sleep.h"
-#include <avr/sleep.h>
-#include <avr/power.h>
-#include <Arduino.h>
-
-void initSleepMode() {
-  // Настройка прерываний: оба пина пробуждают из POWER_DOWN
-  attachInterrupt(
-    digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);
-
-#if USE_OPT3001
-  attachInterrupt(
-    digitalPinToInterrupt(PIN_LIGHT), []() {}, FALLING);
-#else
-  attachInterrupt(
-    digitalPinToInterrupt(PIN_LIGHT), []() {}, CHANGE);  // для LDR
-#endif
-}
+#include <GyverPower.h>
 
 void maybeSleep(bool lightOn, bool isBlocked) {
   // Спать можно ТОЛЬКО если:
   // - свет ВЫКЛЮЧЕН
   // - нет блокировки
   if (!lightOn && !isBlocked) {
-    // Отключаем АЦП для минимизации потребления
-    ADCSRA &= ~(1 << ADEN);
+    // Отключаем всю ненужную периферию
+    GyverPower::sleepConfig(GyverPower::WakeOn::Interrupt, GyverPower::Peripheral::All);
 
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-    sleep_enable();
-    sleep_cpu();      // МК засыпает здесь
-    sleep_disable();  // После пробуждения — продолжаем
+    // Настраиваем прерывания для пробуждения
+    attachInterrupt(
+      digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);  // D2 — кнопка
+    attachInterrupt(
+      digitalPinToInterrupt(PIN_LIGHT), []() {}, CHANGE);  // D3 — датчик света
 
-    // Включаем АЦП обратно (на случай, если другие модули его используют)
-    ADCSRA |= (1 << ADEN);
+    // Уходим в сон до прерывания
+    GyverPower::sleep();
+
+    // После пробуждения — отключаем прерывания, чтобы избежать повторного срабатывания
+    detachInterrupt(digitalPinToInterrupt(PIN_BUTTON));
+    detachInterrupt(digitalPinToInterrupt(PIN_LIGHT));
   }
+}
 }
 
 #endif
