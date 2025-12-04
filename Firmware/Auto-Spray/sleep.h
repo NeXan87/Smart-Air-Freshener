@@ -4,5 +4,6 @@
 
 // Проверяет условия и, если возможно, переводит МК в сон
 void maybeSleep(bool lightOn, bool isBlocked);
+void initSleepMode();
 
 #endif

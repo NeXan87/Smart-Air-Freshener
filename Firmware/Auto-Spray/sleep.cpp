@@ -5,14 +5,26 @@
 #include "sleep.h"
 #include <GyverPower.h>
 
+GyverPower power;
+
+void initSleepMode() {
+  // Опционально: калибровка (для точного таймера сна)
+  // power.autoCalibrate();
+
+  // Отключаем ненужную периферию
+  power.hardwareDisable(PWR_ADC | PWR_USART | PWR_TWI | PWR_TIMER0 | PWR_TIMER1 | PWR_TIMER2);
+
+  // Устанавливаем режим сна (по умолчанию и так POWERDOWN)
+  power.setSleepMode(POWERDOWN_SLEEP);
+
+  // BOD по умолчанию выключен — хорошо для экономии
+}
+
 void maybeSleep(bool lightOn, bool isBlocked) {
   // Спать можно ТОЛЬКО если:
   // - свет ВЫКЛЮЧЕН
   // - нет блокировки
   if (!lightOn && !isBlocked) {
-    // Отключаем всю ненужную периферию
-    GyverPower::sleepConfig(GyverPower::WakeOn::Interrupt, GyverPower::Peripheral::All);
-
     // Настраиваем прерывания для пробуждения
     attachInterrupt(
       digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);  // D2 — кнопка
@@ -20,7 +32,7 @@ void maybeSleep(bool lightOn, bool isBlocked) {
       digitalPinToInterrupt(PIN_LIGHT), []() {}, CHANGE);  // D3 — датчик света
 
     // Уходим в сон до прерывания
-    GyverPower::sleep();
+    power.sleep();
 
     // После пробуждения — отключаем прерывания, чтобы избежать повторного срабатывания
     detachInterrupt(digitalPinToInterrupt(PIN_BUTTON));
