@@ -9,9 +9,9 @@
 #define PIN_LED_G 5         // Зелёный светодиод
 #define PIN_LED_B 6         // Синий светодиод
 #define PIN_MODE 7          // Переключатель режима (LOW = авто)
-#define PIN_MOTOR_IN2 10    // Мотор распылителя (HIGH = включён)
 #define PIN_MOTOR_IN1 11    // Мотор распылителя (HIGH = включён)
-#define PIN_BUZZER 12       // Пьезоизлучатель (HIGH = сигнал)
+#define PIN_MOTOR_IN2 12    // Мотор распылителя (HIGH = включён)
+#define PIN_BUZZER 10       // Пьезоизлучатель (HIGH = сигнал)
 #define PIN_LED_BUILTIN 13  // Индикация активности (встроенный светодиод)
 
 // -----------------------------------------------------------
