@@ -5,6 +5,7 @@
 
 void initStateMachine();
 void updateStateMachine();
+inline bool isLightOn();
 
 extern State currentState;
 extern Bounce button;

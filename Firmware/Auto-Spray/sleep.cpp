@@ -12,12 +12,20 @@ void initSleepMode() {
   // power.autoCalibrate();
 
   // Отключаем ненужную периферию
-  power.hardwareDisable(PWR_ADC | PWR_USART | PWR_TWI | PWR_TIMER0 | PWR_TIMER1 | PWR_TIMER2);
+  power.hardwareDisable(PWR_ADC | PWR_UART | PWR_WIRE | PWR_TIMER0 | PWR_TIMER1 | PWR_TIMER2);
 
   // Устанавливаем режим сна (по умолчанию и так POWERDOWN)
   power.setSleepMode(POWERDOWN_SLEEP);
 
   // BOD по умолчанию выключен — хорошо для экономии
+}
+
+void wakeUpButton() {
+  power.wakeUp();  // ← обязательно!
+}
+
+void wakeUpLight() {
+  power.wakeUp();  // ← обязательно!
 }
 
 void maybeSleep(bool lightOn, bool isBlocked) {
@@ -27,9 +35,9 @@ void maybeSleep(bool lightOn, bool isBlocked) {
   if (!lightOn && !isBlocked) {
     // Настраиваем прерывания для пробуждения
     attachInterrupt(
-      digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);  // D2 — кнопка
+      digitalPinToInterrupt(PIN_BUTTON), wakeUpButton, FALLING);  // D2 — кнопка
     attachInterrupt(
-      digitalPinToInterrupt(PIN_LIGHT), []() {}, CHANGE);  // D3 — датчик света
+      digitalPinToInterrupt(PIN_LIGHT), wakeUpLight, CHANGE);  // D3 — датчик света
 
     // Уходим в сон до прерывания
     power.sleep();
@@ -38,7 +46,6 @@ void maybeSleep(bool lightOn, bool isBlocked) {
     detachInterrupt(digitalPinToInterrupt(PIN_BUTTON));
     detachInterrupt(digitalPinToInterrupt(PIN_LIGHT));
   }
-}
 }
 
 #endif
