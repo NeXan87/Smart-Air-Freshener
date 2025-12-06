@@ -1,28 +1,76 @@
 #include "config.h"
 #include "spray.h"
 
-void startSpray() {
-  // Гарантированная остановка перед стартом
-  digitalWrite(PIN_MOTOR_IN1, LOW);
-  digitalWrite(PIN_MOTOR_IN2, LOW);
-}
+bool isSpraying = false;
 
-void runSpray() {
-  for (uint8_t i = 0; i < SPRAY_PULSE_COUNT; i++) {
-    digitalWrite(PIN_MOTOR_IN1, HIGH);
-    digitalWrite(PIN_MOTOR_IN2, LOW);
-    delay(SPRAY_ON_MS);
+enum SprayStep {
+  FORWARD,
+  PAUSE1,
+  REVERSE,
+  PAUSE2,
+  REPEAT
+};
 
-    digitalWrite(PIN_MOTOR_IN1, LOW);
-    digitalWrite(PIN_MOTOR_IN2, LOW);
-    if (SPRAY_OFF_MS > 0 && i < SPRAY_PULSE_COUNT - 1) delay(SPRAY_OFF_MS);
+static uint8_t sprayPulse = 0;
+static SprayStep sprayStep = FORWARD;
+static uint32_t sprayTimer = 0;
 
-    digitalWrite(PIN_MOTOR_IN1, LOW);
-    digitalWrite(PIN_MOTOR_IN2, HIGH);
-    delay(SPRAY_REVERSE_MS);
+bool runSpray() {
+  uint32_t now = millis();
 
-    digitalWrite(PIN_MOTOR_IN1, LOW);
-    digitalWrite(PIN_MOTOR_IN2, LOW);
-    if (i < SPRAY_PULSE_COUNT - 1) delay(100);
+  if (!isSpraying) {
+    isSpraying = true;
   }
+
+  switch (sprayStep) {
+    case FORWARD:
+      sprayStep = PAUSE1;
+      sprayTimer = now;
+      digitalWrite(PIN_MOTOR_IN1, HIGH);
+      digitalWrite(PIN_MOTOR_IN2, LOW);
+      break;
+
+    case PAUSE1:
+      if (now - sprayTimer >= SPRAY_ON_MS) {
+        sprayStep = REVERSE;
+        sprayTimer = now;
+        digitalWrite(PIN_MOTOR_IN1, LOW);
+        digitalWrite(PIN_MOTOR_IN2, LOW);
+      }
+      break;
+
+    case REVERSE:
+      if (now - sprayTimer >= SPRAY_PAUSE1_MS) {
+        sprayStep = PAUSE2;
+        sprayTimer = now;
+        digitalWrite(PIN_MOTOR_IN1, LOW);
+        digitalWrite(PIN_MOTOR_IN2, HIGH);
+      }
+      break;
+
+    case PAUSE2:
+      if (now - sprayTimer >= SPRAY_REVERSE_MS) {
+        digitalWrite(PIN_MOTOR_IN1, LOW);
+        digitalWrite(PIN_MOTOR_IN2, LOW);
+        if (sprayPulse < SPRAY_PULSE_COUNT - 1) {
+          sprayStep = REPEAT;
+          sprayTimer = now;
+        } else {
+          isSpraying = false;
+          sprayStep = FORWARD;
+          sprayPulse = 0;
+          return true;
+        }
+      }
+      break;
+
+    case REPEAT:
+      if (now - sprayTimer >= SPRAY_PAUSE2_MS) {
+        sprayPulse++;
+        sprayStep = FORWARD;
+        sprayTimer = now;
+      }
+      break;
+  }
+  return false;
 }

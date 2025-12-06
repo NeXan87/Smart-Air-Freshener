@@ -35,6 +35,7 @@ void runStartupSequence() {
 // SETUP
 // -----------------------------------------------------------
 void setup() {
+  Serial.begin(9600);
 #if USE_OPT3001
   pinMode(PIN_LIGHT, INPUT_PULLUP);
 #else
@@ -48,7 +49,7 @@ void setup() {
   pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
-  
+
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);
   noTone(PIN_BUZZER);

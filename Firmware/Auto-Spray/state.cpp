@@ -9,7 +9,7 @@ Bounce button;
 
 uint32_t tLightOn = 0;
 uint32_t tBlockStart = 0;
-uint32_t tBlink = 0;          // таймер для мигания
+uint32_t tBlink = 0;  // таймер для мигания
 uint32_t buttonPressStartTime = 0;
 uint32_t tBeepStart = 0;
 
@@ -20,7 +20,7 @@ bool readyWasCanceledInThisSession = false;
 
 // Глобальные для мигания
 static uint32_t lastBlinkToggle = 0;
-static bool blinkState = false; // false = выкл, true = вкл
+static bool blinkState = false;  // false = выкл, true = вкл
 
 inline bool isLightOn() {
   static uint32_t lastRead = 0;
@@ -64,7 +64,9 @@ void updateStateMachine() {
   bool isLight = isLightOn();
   bool isAuto = isAutoModeEnabled();
 
-  button.update();
+  if (currentState != STATE_SPRAY) {
+    button.update();
+  }
 
   // --------------------------
   // КНОПКА
@@ -80,7 +82,7 @@ void updateStateMachine() {
       readyWasCanceledInThisSession = true;
       currentState = STATE_LIGHT_WAIT;
       tLightOn = now;
-      blinkState = false; // сброс мигания
+      blinkState = false;  // сброс мигания
     } else {
       // Обычный пшик (ручной режим или другие состояния)
       currentState = STATE_SPRAY;
@@ -107,10 +109,12 @@ void updateStateMachine() {
   // --------------------------
   if (currentState == STATE_SPRAY) {
     updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
-    tBlockStart = millis();
-    runSpray();
-    updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
-    currentState = STATE_BLOCKED;
+
+    if (runSpray()) {
+      tBlockStart = millis();
+      updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+      currentState = STATE_BLOCKED;
+    }
     return;
   }
 
@@ -141,8 +145,7 @@ void updateStateMachine() {
     if (now - tBlockStart >= BLOCK_MS) {
       currentState = STATE_IDLE;
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
-    }
-    else if (buttonPressed && (now - buttonPressStartTime >= BLOCK_RESET_HOLD_MS)) {
+    } else if (buttonPressed && (now - buttonPressStartTime >= BLOCK_RESET_HOLD_MS)) {
       currentState = STATE_RESET_BEEP;
       tBeepStart = now;
       tone(PIN_BUZZER, 1000);
