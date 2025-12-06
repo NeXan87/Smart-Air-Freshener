@@ -32,7 +32,7 @@ void initOpt3001() {
   Wire.endTransmission();
 
   // 3. Сброс флага прерывания (на всякий случай)
-  Wire.requestFrom(OPT3001_I2C_ADDRESS, (uint8_t)2);
+  Wire.requestFrom((uint8_t)OPT3001_I2C_ADDRESS, (uint8_t)2);
   if (Wire.available() >= 2) {
     (void)Wire.read();
     (void)Wire.read();  // сброс
@@ -41,7 +41,7 @@ void initOpt3001() {
 
 // Опционально: функция для сброса флага прерывания после пробуждения
 void clearOpt3001Interrupt() {
-  Wire.requestFrom(OPT3001_I2C_ADDRESS, (uint8_t)2);
+  Wire.requestFrom((uint8_t)OPT3001_I2C_ADDRESS, (uint8_t)2);
   if (Wire.available() >= 2) {
     (void)Wire.read();
     (void)Wire.read();
