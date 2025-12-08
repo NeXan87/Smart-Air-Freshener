@@ -11,7 +11,7 @@ static bool blinking = false;
 void startBlinkConfirm(SprayMode count) {
   if (count == 0 || count > 3) {
     blinking = false;
-    digitalWrite(PIN_LED_BUILTIN, LOW);
+    digitalWrite(PIN_ADD_LED, LOW);
     return;
   }
   blinkCount = count;
@@ -19,7 +19,7 @@ void startBlinkConfirm(SprayMode count) {
   ledOn = true;
   blinking = true;
   lastBlinkTime = millis();
-  digitalWrite(PIN_LED_BUILTIN, HIGH);
+  digitalWrite(PIN_ADD_LED, HIGH);
 }
 
 void blinkSprayConfirm() {
@@ -29,7 +29,7 @@ void blinkSprayConfirm() {
 
   if (ledOn) {
     if (now - lastBlinkTime >= BLINK_ON_CONFIRM_MODE_MS) {
-      digitalWrite(PIN_LED_BUILTIN, LOW);
+      digitalWrite(PIN_ADD_LED, LOW);
       ledOn = false;
       lastBlinkTime = now;
     }
@@ -38,10 +38,10 @@ void blinkSprayConfirm() {
       currentBlink++;
       if (currentBlink >= blinkCount) {
         blinking = false;
-        digitalWrite(PIN_LED_BUILTIN, LOW);
+        digitalWrite(PIN_ADD_LED, LOW);
         return;
       }
-      digitalWrite(PIN_LED_BUILTIN, HIGH);
+      digitalWrite(PIN_ADD_LED, HIGH);
       ledOn = true;
       lastBlinkTime = now;
     }

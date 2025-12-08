@@ -57,23 +57,33 @@ void updateBlinkLed(LedColor red, LedColor green, LedColor blue) {
 }
 
 void resetState() {
+  tLightOn = 0;
   tBlockStart = 0;
-    tBeepStart = 0;
-    buttonPressStartTime = 0;
-    wasAutoMode = false;
-    wasSpray = false;
-    buttonPressed = false;
-    readyWasCanceledInThisSession = false;
+  tBeepStart = 0;
+  lastBlinkToggle = 0;
+  buttonPressStartTime = 0;
+  wasAutoMode = false;
+  wasSpray = false;
+  buttonPressed = false;
+  blinkState = false;
+  readyWasCanceledInThisSession = false;
 }
 
 void updateStateMachine() {
+  SprayMode currentMode = getCurrentMode();
+  static SprayMode lastMode = MODE_MANUAL;
+  static bool lastIsSprayOnLightOn = false;
+
   uint32_t now = millis();
   bool isLight = isLightOn();
   bool isAuto = getCurrentMode() != MODE_MANUAL;
   bool isSprayOnLightOn = digitalRead(PIN_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
 
-  if (!isAuto) {
+  if (!isAuto || lastMode != currentMode || lastIsSprayOnLightOn != isSprayOnLightOn) {
     resetState();
+    lastMode = currentMode;
+    lastIsSprayOnLightOn = isSprayOnLightOn;
+    currentState = STATE_IDLE;
   }
 
   if (currentState != STATE_SPRAY) {
