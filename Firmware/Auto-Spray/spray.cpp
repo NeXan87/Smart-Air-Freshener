@@ -1,5 +1,6 @@
 #include "config.h"
 #include "spray.h"
+#include "utils.h"
 
 bool isSpraying = false;
 
@@ -11,16 +12,16 @@ enum SprayStep {
   REPEAT
 };
 
-static uint8_t sprayPulse = 0;
+SprayMode pulseCount = 0;
 static SprayStep sprayStep = FORWARD;
+static uint8_t sprayPulse = 0;
 static uint32_t sprayTimer = 0;
-uint8_t pulseCount = 0;
 
-uint8_t getSprayPulseCount() {
-  if (digitalRead(PIN_SPRAY_2) == LOW) return 2;
-  if (digitalRead(PIN_SPRAY_3) == LOW) return 3;
-  if (digitalRead(PIN_SPRAY_4) == LOW) return 4;
-  return 1;  // по умолчанию 1 пшик
+void resetSpray() {
+  isSpraying = false;
+  sprayStep = FORWARD;
+  sprayPulse = 0;
+  sprayTimer = 0;
 }
 
 bool runSpray() {
@@ -28,7 +29,7 @@ bool runSpray() {
 
   if (!isSpraying) {
     isSpraying = true;
-    pulseCount = getSprayPulseCount();
+    pulseCount = getCurrentMode();
   }
 
   switch (sprayStep) {
@@ -65,9 +66,7 @@ bool runSpray() {
           sprayStep = REPEAT;
           sprayTimer = now;
         } else {
-          isSpraying = false;
-          sprayStep = FORWARD;
-          sprayPulse = 0;
+          resetSpray();
           return true;
         }
       }

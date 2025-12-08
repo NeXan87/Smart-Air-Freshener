@@ -6,8 +6,10 @@
 #include "config.h"
 #include "leds.h"
 #include "spray.h"
+#include "sleep.h"
 #include "state.h"
 #include "opt3001.h"
+#include "utils.h"
 
 #if ENABLE_SLEEP_MODE
 #include "sleep.h"
@@ -48,11 +50,13 @@ void setup() {
   pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
+  pinMode(PIN_LED_BUILTIN, OUTPUT);
   pinMode(PIN_MODE, INPUT_PULLUP);
   pinMode(PIN_SPRAY_2, INPUT_PULLUP);
   pinMode(PIN_SPRAY_3, INPUT_PULLUP);
   pinMode(PIN_SPRAY_4, INPUT_PULLUP);
 
+  digitalWrite(PIN_LED_BUILTIN, LOW);
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);
   noTone(PIN_BUZZER);
@@ -64,11 +68,6 @@ void setup() {
   initSleepMode();
 #endif
 
-#if ACTIVITY_LED_ENABLED
-  pinMode(PIN_LED_BUILTIN, OUTPUT);
-  digitalWrite(PIN_LED_BUILTIN, LOW);
-#endif
-
 #if USE_OPT3001
   initOpt3001();
 #endif
@@ -78,7 +77,25 @@ void setup() {
 // LOOP
 // -----------------------------------------------------------
 void loop() {
+  SprayMode mode = getCurrentMode();
+
+  if (mode == MODE_OFF) {
+#if ENABLE_SLEEP_MODE
+    sleepWDT();
+#endif
+    currentState = STATE_IDLE;
+    resetSpray();
+    disableOutputPins();
+    checkSprayMode(mode);
+    return;
+  }
+
   updateStateMachine();
+
+  if (checkSprayMode(mode)) {
+    startBlinkConfirm(mode);
+  }
+  blinkSprayConfirm();
 
 #if ENABLE_SLEEP_MODE
   bool lightOn = isLightOn();

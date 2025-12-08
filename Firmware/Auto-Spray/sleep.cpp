@@ -13,6 +13,11 @@ void initSleepMode() {
 void wakeUp() {
   // power.wakeUp();
 }
+
+void sleepWDT() {
+  power.sleep(SLEEP_1024MS);
+}
+
 void maybeSleep(bool lightOn, bool isNotBlocked) {
   // Спать можно ТОЛЬКО если:
   // - свет ВЫКЛЮЧЕН

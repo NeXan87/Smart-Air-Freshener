@@ -48,11 +48,11 @@ void updateBlinkLed(LedColor red, LedColor green, LedColor blue) {
   uint32_t now = millis();
   uint32_t elapsed = now - lastBlinkToggle;
 
-  if (!blinkState && elapsed >= LED_BLINK_OFF_MS) {
+  if (!blinkState && elapsed >= LED_BLINK_OFF_CONFIRM_MODE_MS) {
     blinkState = true;
     lastBlinkToggle = now;
     updateLed(red, green, blue);
-  } else if (blinkState && elapsed >= LED_BLINK_ON_MS) {
+  } else if (blinkState && elapsed >= LED_BLINK_ON_CONFIRM_MODE_MS) {
     blinkState = false;
     lastBlinkToggle = now;
     updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);

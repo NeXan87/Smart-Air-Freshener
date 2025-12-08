@@ -1,6 +1,52 @@
 #include "config.h"
 #include "leds.h"
-#include <Arduino.h>
+#include "utils.h"
+
+static uint8_t blinkCount = 0;
+static uint8_t currentBlink = 0;
+static uint32_t lastBlinkTime = 0;
+static bool ledOn = false;
+static bool blinking = false;
+
+void startBlinkConfirm(SprayMode count) {
+  if (count == 0 || count > 3) {
+    blinking = false;
+    digitalWrite(PIN_LED_BUILTIN, LOW);
+    return;
+  }
+  blinkCount = count;
+  currentBlink = 0;
+  ledOn = true;
+  blinking = true;
+  lastBlinkTime = millis();
+  digitalWrite(PIN_LED_BUILTIN, HIGH);
+}
+
+void blinkSprayConfirm() {
+  if (!blinking) return;
+
+  uint32_t now = millis();
+
+  if (ledOn) {
+    if (now - lastBlinkTime >= BLINK_ON_CONFIRM_MODE_MS) {
+      digitalWrite(PIN_LED_BUILTIN, LOW);
+      ledOn = false;
+      lastBlinkTime = now;
+    }
+  } else {
+    if (now - lastBlinkTime >= BLINK_OFF_CONFIRM_MODE_MS) {
+      currentBlink++;
+      if (currentBlink >= blinkCount) {
+        blinking = false;
+        digitalWrite(PIN_LED_BUILTIN, LOW);
+        return;
+      }
+      digitalWrite(PIN_LED_BUILTIN, HIGH);
+      ledOn = true;
+      lastBlinkTime = now;
+    }
+  }
+}
 
 void updateLed(LedColor red, LedColor green, LedColor blue) {
 #if LED_COMMON_ANODE
