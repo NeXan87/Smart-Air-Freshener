@@ -52,9 +52,8 @@ void setup() {
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_LED_BUILTIN, OUTPUT);
   pinMode(PIN_MODE, INPUT_PULLUP);
+  pinMode(PIN_SPRAY_1, INPUT_PULLUP);
   pinMode(PIN_SPRAY_2, INPUT_PULLUP);
-  pinMode(PIN_SPRAY_3, INPUT_PULLUP);
-  pinMode(PIN_SPRAY_4, INPUT_PULLUP);
 
   digitalWrite(PIN_LED_BUILTIN, LOW);
   digitalWrite(PIN_MOTOR_IN1, LOW);

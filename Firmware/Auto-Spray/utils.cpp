@@ -12,10 +12,18 @@ bool checkSprayMode(SprayMode currentMode) {
 }
 
 SprayMode getCurrentMode() {
-  if (digitalRead(PIN_SPRAY_2) == LOW) return MODE_1;
-  if (digitalRead(PIN_SPRAY_3) == LOW) return MODE_2;
-  if (digitalRead(PIN_SPRAY_4) == LOW) return MODE_3;
-  return MODE_OFF;
+  bool d7 = (digitalRead(PIN_SPRAY_1) == LOW);  // D7
+  bool d8 = (digitalRead(PIN_SPRAY_2) == LOW);  // D8
+
+  if (d7 && d8) {
+    return MODE_3;  // 3 пшика — оба замкнуты
+  } else if (d8) {
+    return MODE_2;  // 2 пшика — только D8
+  } else if (d7) {
+    return MODE_1;  // 1 пшик — только D7
+  } else {
+    return MODE_OFF;  // ничего не замкнуто
+  }
 }
 
 void disableOutputPins() {

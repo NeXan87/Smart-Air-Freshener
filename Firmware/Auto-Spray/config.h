@@ -9,10 +9,9 @@
 #define PIN_LED_R 4         // Красный светодиод (общий анод)
 #define PIN_LED_G 5         // Зелёный светодиод
 #define PIN_LED_B 6         // Синий светодиод
-#define PIN_SPRAY_2 7       // переключатель пшиков: 2 пшика
-#define PIN_SPRAY_3 8       // переключатель пшиков: 3 пшика
-#define PIN_SPRAY_4 9       // переключатель пшиков: 4 пшика
-#define PIN_BUZZER 10       // Пьезоизлучатель (HIGH = сигнал)
+#define PIN_SPRAY_1 7       // переключатель пшиков: 1 пшик
+#define PIN_SPRAY_2 8       // переключатель пшиков: 2 пшика (3 пшика — когда ЗАМКНУТЫ ОБА: D7 И D8)
+#define PIN_BUZZER 9       // Пьезоизлучатель (HIGH = сигнал)
 #define PIN_MOTOR_IN1 11    // Мотор распылителя (HIGH = включён)
 #define PIN_MOTOR_IN2 12    // Мотор распылителя (HIGH = включён)
 #define PIN_LED_BUILTIN 13  // Индикация активности (встроенный светодиод)
