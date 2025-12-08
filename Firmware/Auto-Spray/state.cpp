@@ -80,10 +80,12 @@ void updateStateMachine() {
   bool isSprayOnLightOn = digitalRead(PIN_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
 
   if (!isAuto || lastMode != currentMode || lastIsSprayOnLightOn != isSprayOnLightOn) {
-    resetState();
-    lastMode = currentMode;
-    lastIsSprayOnLightOn = isSprayOnLightOn;
-    currentState = STATE_IDLE;
+    if (currentState != STATE_SPRAY) {
+      resetState();
+      lastMode = currentMode;
+      lastIsSprayOnLightOn = isSprayOnLightOn;
+      currentState = STATE_IDLE;
+    }
   }
 
   if (currentState != STATE_SPRAY) {
@@ -152,7 +154,7 @@ void updateStateMachine() {
   // --------------------------
   // СМЕНА РЕЖИМА
   // --------------------------
-  if (isAuto && !wasAutoMode && isLight) {
+  if (currentState != STATE_SPRAY && isAuto && !wasAutoMode && isLight) {
     tLightOn = now;
   }
   if (!isAuto && wasAutoMode && currentState == STATE_READY) {
