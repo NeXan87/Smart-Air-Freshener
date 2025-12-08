@@ -17,6 +17,7 @@ bool wasAutoMode = false;
 bool wasSpray = false;
 bool buttonPressed = false;
 bool readyWasCanceledInThisSession = false;
+bool isButtonSpray = false;
 
 // Глобальные для мигания
 static uint32_t lastBlinkToggle = 0;
@@ -55,6 +56,16 @@ void updateBlinkLed(LedColor red, LedColor green, LedColor blue) {
   }
 }
 
+void resetState() {
+  tBlockStart = 0;
+    tBeepStart = 0;
+    buttonPressStartTime = 0;
+    wasAutoMode = false;
+    wasSpray = false;
+    buttonPressed = false;
+    readyWasCanceledInThisSession = false;
+}
+
 void updateStateMachine() {
   uint32_t now = millis();
   bool isLight = isLightOn();
@@ -62,13 +73,7 @@ void updateStateMachine() {
   bool isSprayOnLightOn = digitalRead(PIN_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
 
   if (!isAuto) {
-    tBlockStart = 0;
-    tBeepStart = 0;
-    buttonPressStartTime = 0;
-    wasAutoMode = false;
-    wasSpray = false;
-    buttonPressed = false;
-    readyWasCanceledInThisSession = false;
+    resetState();
   }
 
   if (currentState != STATE_SPRAY) {
@@ -94,6 +99,7 @@ void updateStateMachine() {
       // Обычный пшик (ручной режим или другие состояния)
       currentState = STATE_SPRAY;
       buttonPressed = false;
+      isButtonSpray = true;
     }
   }
   if (button.rose()) {
@@ -118,8 +124,16 @@ void updateStateMachine() {
     updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
 
     if (runSpray()) {
-      tBlockStart = millis();
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+
+      if (isButtonSpray) {
+        isButtonSpray = false;
+        resetState();
+        currentState = STATE_IDLE;
+        return;
+      }
+
+      tBlockStart = millis();
       currentState = STATE_BLOCKED;
     }
     return;
