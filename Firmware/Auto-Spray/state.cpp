@@ -33,10 +33,6 @@ inline bool isLightOn() {
   return cachedValue;
 }
 
-inline bool isAutoModeEnabled() {
-  return digitalRead(PIN_MODE) == LOW;
-}
-
 void initStateMachine() {
   currentState = STATE_IDLE;
   button.attach(PIN_BUTTON, INPUT_PULLUP);
@@ -62,7 +58,18 @@ void updateBlinkLed(LedColor red, LedColor green, LedColor blue) {
 void updateStateMachine() {
   uint32_t now = millis();
   bool isLight = isLightOn();
-  bool isAuto = isAutoModeEnabled();
+  bool isAuto = getCurrentMode() != MODE_MANUAL;
+  bool isSprayOnLightOn = digitalRead(PIN_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
+
+  if (!isAuto) {
+    tBlockStart = 0;
+    tBeepStart = 0;
+    buttonPressStartTime = 0;
+    wasAutoMode = false;
+    wasSpray = false;
+    buttonPressed = false;
+    readyWasCanceledInThisSession = false;
+  }
 
   if (currentState != STATE_SPRAY) {
     button.update();
@@ -77,7 +84,7 @@ void updateStateMachine() {
     if (currentState == STATE_BLOCKED) {
       buttonPressed = true;
       buttonPressStartTime = now;
-    } else if (currentState == STATE_READY && isAutoModeEnabled()) {
+    } else if (currentState == STATE_READY && isAuto) {
       // Отмена готовности в автоматическом режиме
       readyWasCanceledInThisSession = true;
       currentState = STATE_LIGHT_WAIT;
@@ -148,7 +155,7 @@ void updateStateMachine() {
     } else if (buttonPressed && (now - buttonPressStartTime >= BLOCK_RESET_HOLD_MS)) {
       currentState = STATE_RESET_BEEP;
       tBeepStart = now;
-      tone(PIN_BUZZER, 1000);
+      tone(PIN_BUZZER, FREQ_SQUEAKER);
       buttonPressed = false;
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     }
@@ -163,8 +170,7 @@ void updateStateMachine() {
     wasSpray = false;
     readyWasCanceledInThisSession = false;
     blinkState = false;
-
-    if (AUTO_SPRAY_ON_LIGHT_OFF && currentState == STATE_READY) {
+    if (isSprayOnLightOn && currentState == STATE_READY) {
       currentState = STATE_SPRAY;
     } else {
       currentState = STATE_IDLE;
@@ -192,11 +198,10 @@ void updateStateMachine() {
         if (!readyWasCanceledInThisSession && !wasSpray && isAuto) {
           currentState = STATE_READY;
           updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_ON);
-          tone(PIN_BUZZER, 1000);
+          tone(PIN_BUZZER, FREQ_SQUEAKER);
           delay(READY_BEEP_MS);
           noTone(PIN_BUZZER);
-
-          if (!AUTO_SPRAY_ON_LIGHT_OFF) {
+          if (!isSprayOnLightOn) {
             currentState = STATE_SPRAY;
             wasSpray = true;
           }

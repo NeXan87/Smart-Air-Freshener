@@ -16,7 +16,7 @@
 #endif
 
 void runStartupSequence() {
-  tone(PIN_BUZZER, 1000);  // Включаем писк
+  tone(PIN_BUZZER, FREQ_SQUEAKER);  // Включаем писк
 
   updateLed(LED_RED_ON, LED_GREEN_OFF, LED_BLUE_OFF);
   delay(STARTUP_DELAY_MS);
@@ -37,7 +37,7 @@ void runStartupSequence() {
 // SETUP
 // -----------------------------------------------------------
 void setup() {
-  Serial.begin(9600);
+  // Serial.begin(9600);
 #if USE_OPT3001
   pinMode(PIN_LIGHT, INPUT_PULLUP);
 #else
@@ -58,7 +58,6 @@ void setup() {
   digitalWrite(PIN_LED_BUILTIN, LOW);
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);
-  noTone(PIN_BUZZER);
 
   runStartupSequence();
   initStateMachine();
@@ -77,17 +76,6 @@ void setup() {
 // -----------------------------------------------------------
 void loop() {
   SprayMode mode = getCurrentMode();
-
-  if (mode == MODE_OFF) {
-#if ENABLE_SLEEP_MODE
-    sleepWDT();
-#endif
-    currentState = STATE_IDLE;
-    resetSpray();
-    disableOutputPins();
-    checkSprayMode(mode);
-    return;
-  }
 
   updateStateMachine();
 
