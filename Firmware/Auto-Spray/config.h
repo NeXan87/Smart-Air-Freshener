@@ -35,7 +35,7 @@
 // -----------------------------------------------------------
 // ГЛАВНЫЙ СВЕТОДИОД
 // -----------------------------------------------------------
-#define LED_COMMON_ANODE true                 // true = общий анод, false = общий катод
+#define LED_COMMON_ANODE false                 // true = общий анод, false = общий катод
 #define STARTUP_DELAY_MS 200UL                // Время включения каждого светодиода при старте для проверки
 #define LED_BLINK_ON_CONFIRM_MODE_MS 100UL    // время включения светодиода (мс)
 #define LED_BLINK_OFF_CONFIRM_MODE_MS 1000UL  // время выключения светодиода (мс)
