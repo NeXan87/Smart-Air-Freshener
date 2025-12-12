@@ -8,6 +8,13 @@ static uint32_t lastBlinkTime = 0;
 static bool ledOn = false;
 static bool blinking = false;
 
+void updateSprayMode(SprayMode currentMode) {
+  if (checkSprayMode(currentMode)) {
+    startBlinkConfirm(currentMode);
+  }
+  blinkSprayConfirm();
+}
+
 void startBlinkConfirm(SprayMode count) {
   if (count == 0 || count > 3) {
     blinking = false;
@@ -64,18 +71,10 @@ void updateLed(LedColor red, LedColor green, LedColor blue) {
 
 #if ACTIVITY_LED_ENABLED
 
-void updateActivityLed(bool canSleep) {
+void updateActivityLed() {
   static uint32_t lastToggle = 0;
   static bool ledState = false;
   uint32_t now = millis();
-
-  if (canSleep) {
-    if (ledState) {
-      digitalWrite(PIN_LED_BUILTIN, LOW);
-      ledState = false;
-    }
-    return;
-  }
 
   if (ledState) {
     if (now - lastToggle >= ACTIVITY_LED_ON_MS) {
@@ -90,13 +89,6 @@ void updateActivityLed(bool canSleep) {
       lastToggle = now;
     }
   }
-}
-
-#else
-
-// Заглушка, если отключено
-void updateActivityLed(bool canSleep) {
-  (void)canSleep;
 }
 
 #endif

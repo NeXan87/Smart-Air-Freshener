@@ -1,10 +1,11 @@
 #pragma once
 
 #include "config.h"
+#include "utils.h"
 #include <Bounce2.h>
 
 void initStateMachine();
-void updateStateMachine();
+void updateStateMachine(SprayMode currentMode);
 inline bool isLightOn();
 
 extern State currentState;

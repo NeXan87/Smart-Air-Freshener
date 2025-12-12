@@ -69,11 +69,10 @@ void resetState() {
   isReadyCancelInSession = false;
 }
 
-void updateStateMachine() {
+void updateStateMachine(SprayMode currentMode) {
   static SprayMode lastMode = MODE_MANUAL;
   static bool isLastSprayOnLightOn = false;
 
-  SprayMode currentMode = getCurrentMode();
   uint32_t now = millis();
   bool isLight = isLightOn();
   bool isAuto = getCurrentMode() != MODE_MANUAL;

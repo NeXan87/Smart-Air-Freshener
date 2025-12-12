@@ -8,8 +8,10 @@
 #include "spray.h"
 #include "sleep.h"
 #include "state.h"
+
+#if USE_OPT3001
 #include "opt3001.h"
-#include "utils.h"
+#endif
 
 #if ENABLE_SLEEP_MODE
 #include "sleep.h"
@@ -18,6 +20,7 @@
 void runStartupSequence() {
   tone(PIN_BUZZER, FREQ_SQUEAKER);  // Включаем писк
 
+  digitalWrite(PIN_ADD_LED, HIGH);
   updateLed(LED_RED_ON, LED_GREEN_OFF, LED_BLUE_OFF);
   delay(STARTUP_DELAY_MS);
 
@@ -28,7 +31,7 @@ void runStartupSequence() {
   delay(STARTUP_DELAY_MS);
 
   updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
-  delay(STARTUP_DELAY_MS);
+  digitalWrite(PIN_ADD_LED, LOW);
 
   noTone(PIN_BUZZER);  // Выключаем писк
 }
@@ -77,28 +80,18 @@ void setup() {
 // LOOP
 // -----------------------------------------------------------
 void loop() {
-  SprayMode mode = getCurrentMode();
+  SprayMode currentMode = getCurrentMode();
 
-  updateStateMachine();
-
-  if (checkSprayMode(mode)) {
-    startBlinkConfirm(mode);
-  }
-  blinkSprayConfirm();
+  updateStateMachine(currentMode);
+  updateSprayMode(currentMode);
 
 #if ENABLE_SLEEP_MODE
   bool lightOn = isLightOn();
   bool isNotBlocked = (currentState != STATE_BLOCKED);
-  bool canSleep = (!lightOn && isNotBlocked);
-#else
-  bool canSleep = false;
+  maybeSleep(lightOn, isNotBlocked);
 #endif
 
 #if ACTIVITY_LED_ENABLED
-  updateActivityLed(canSleep);
-#endif
-
-#if ENABLE_SLEEP_MODE
-  maybeSleep(lightOn, isNotBlocked);
+  updateActivityLed();
 #endif
 }
