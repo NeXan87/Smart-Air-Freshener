@@ -78,12 +78,8 @@ void updateStateMachine(SprayMode currentMode) {
   bool isAuto = getCurrentMode() != MODE_MANUAL;
   bool isSprayOnLightOn = digitalRead(PIN_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
   bool isUpdateUI = isAutoMode != isAuto || lastMode != currentMode || isLastSprayOnLightOn != isSprayOnLightOn;
-  bool isStateReady = currentState == STATE_READY;
-  bool isStateBeep = currentState == STATE_RESET_BEEP;
-  bool isStateSpray = currentState == STATE_SPRAY;
-  bool isStateBlocked = currentState == STATE_BLOCKED;
 
-  if (isUpdateUI && !isStateSpray) {
+  if (isUpdateUI && currentState != STATE_SPRAY) {
     resetState();
     currentState = STATE_IDLE;
     lastMode = currentMode;
@@ -91,7 +87,7 @@ void updateStateMachine(SprayMode currentMode) {
     isAutoMode = isAuto;
   }
 
-  if (!isStateSpray) {
+  if (currentState != STATE_SPRAY) {
     button.update();
   }
 
@@ -101,10 +97,10 @@ void updateStateMachine(SprayMode currentMode) {
   if (button.fell()) {
     isSpray = false;
 
-    if (isStateBlocked) {
+    if (currentState == STATE_BLOCKED) {
       isButtonPressed = true;
       buttonPressStartTime = now;
-    } else if (isStateReady && isAuto) {
+    } else if (currentState == STATE_READY && isAuto) {
       // Отмена готовности в автоматическом режиме
       isReadyCancelInSession = true;
       currentState = STATE_LIGHT_WAIT;
@@ -124,7 +120,7 @@ void updateStateMachine(SprayMode currentMode) {
   // --------------------------
   // СБРОС ПИСКОМ
   // --------------------------
-  if (isStateBeep) {
+  if (currentState == STATE_RESET_BEEP) {
     if (now - tBeepStart >= RESET_BEEP_DURATION_MS) {
       noTone(PIN_BUZZER);
       currentState = STATE_IDLE;
@@ -135,7 +131,7 @@ void updateStateMachine(SprayMode currentMode) {
   // --------------------------
   // РАСПЫЛЕНИЕ
   // --------------------------
-  if (isStateSpray) {
+  if (currentState == STATE_SPRAY) {
     updateLed(LED_RED_OFF, LED_GREEN_ON, LED_BLUE_OFF);
 
     if (runSpray()) {
@@ -157,10 +153,10 @@ void updateStateMachine(SprayMode currentMode) {
   // --------------------------
   // СМЕНА РЕЖИМА
   // --------------------------
-  if (!isStateSpray && isAuto && !isAutoMode && isLight) {
+  if (currentState != STATE_SPRAY && isAuto && !isAutoMode && isLight) {
     tLightOn = now;
   }
-  if (!isAuto && isAutoMode && isStateReady) {
+  if (!isAuto && isAutoMode && currentState == STATE_READY) {
     currentState = STATE_LIGHT_WAIT;
     tLightOn = now;
     isBlinkState = false;
@@ -170,7 +166,7 @@ void updateStateMachine(SprayMode currentMode) {
   // --------------------------
   // БЛОКИРОВКА
   // --------------------------
-  if (isStateBlocked) {
+  if (currentState == STATE_BLOCKED) {
     if (isLight) {
       // Мигание красного с новыми таймингами
       updateBlinkLed(LED_RED_ON, LED_GREEN_OFF, LED_BLUE_OFF);
@@ -201,7 +197,7 @@ void updateStateMachine(SprayMode currentMode) {
     isBlinkState = false;
 
     if (currentState != STATE_SPRAY) {
-      if (isSprayOnLightOn && isStateReady) {
+      if (isSprayOnLightOn && currentState == STATE_READY) {
         currentState = STATE_SPRAY;
       } else {
         currentState = STATE_IDLE;
