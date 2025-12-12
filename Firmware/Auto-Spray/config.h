@@ -101,3 +101,14 @@ enum LedColor {
   LED_BLUE_OFF,
   LED_BLUE_ON
 };
+
+// -----------------------------------------------------------
+// ENUM ПШИКА
+// -----------------------------------------------------------
+enum SprayStep {
+  FORWARD,
+  PAUSE1,
+  REVERSE,
+  PAUSE2,
+  REPEAT
+};

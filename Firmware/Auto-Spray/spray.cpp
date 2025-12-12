@@ -4,14 +4,6 @@
 
 bool isSpraying = false;
 
-enum SprayStep {
-  FORWARD,
-  PAUSE1,
-  REVERSE,
-  PAUSE2,
-  REPEAT
-};
-
 SprayMode pulseCount = 0;
 static SprayStep sprayStep = FORWARD;
 static uint8_t sprayPulse = 0;
