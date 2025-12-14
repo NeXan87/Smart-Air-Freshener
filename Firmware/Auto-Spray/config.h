@@ -13,7 +13,7 @@
 #define PIN_LED_B 6         // Синий светодиод
 #define PIN_SPRAY_1 7       // переключатель пшиков: 1 пшик
 #define PIN_SPRAY_2 8       // переключатель пшиков: 2 пшика (3 пшика — когда ЗАМКНУТЫ ОБА: D7 И D8)
-#define PIN_MODE 9          // Переключатель режима (LOW = авто)
+#define PIN_MODE 9          // Переключатель режима (LOW = пшик после выключения света)
 #define PIN_BUZZER 10       // Пьезоизлучатель (HIGH = сигнал)
 #define PIN_MOTOR_IN1 11    // Мотор распылителя (HIGH = включён)
 #define PIN_MOTOR_IN2 12    // Мотор распылителя (HIGH = включён)
