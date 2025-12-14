@@ -103,9 +103,9 @@ void loop() {
   SprayMode currentMode = getCurrentMode();
   bool isLightOn = hasLightOn();
 
+  updateBattery(isLightOn);
   updateStateMachine(currentMode, isLightOn);
   updateSprayMode(currentMode);
-  updateBattery(isLightOn);
 
 #if ENABLE_SLEEP_MODE
   maybeSleep(isLightOn);

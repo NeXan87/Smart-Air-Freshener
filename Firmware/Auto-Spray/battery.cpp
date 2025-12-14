@@ -1,17 +1,19 @@
 #include "config.h"
 #include "battery.h"
 #include "leds.h"
+#include "state.h"
+
+uint16_t vbat = 9999;
 
 uint16_t readBatteryVoltage() {
   digitalWrite(PIN_BATTERY_EN, HIGH);
   delayMicroseconds(5);
 
   uint16_t adc = analogRead(PIN_BATTERY_POINT);
-
-  digitalWrite(PIN_BATTERY_EN, LOW);
   float vout_mv = adc * VCC_ARDUINO / 1023;
   uint16_t vbat_mv = (uint16_t)(vout_mv * BATTERY_DIVIDER_RATIO);
 
+  digitalWrite(PIN_BATTERY_EN, LOW);
   return vbat_mv;
 }
 
@@ -20,13 +22,14 @@ void updateBattery(bool isLightOn) {
   static bool isBatteryLow = false;
 
   if (isLightOn && millis() - lastBatteryCheck >= BATTERY_CHECK_INTERVAL_MS) {
-    uint16_t vbat = readBatteryVoltage();
+    vbat = readBatteryVoltage();
 
-    if (vbat <= BATTERY_LOW_VOLTAGE_MV) {
+    if (vbat <= BATTERY_LOW_MV) {
       isBatteryLow = true;
     } else {
       isBatteryLow = false;
     }
+
     lastBatteryCheck = millis();
   }
 
@@ -41,4 +44,8 @@ void updateBattery(bool isLightOn) {
   } else {
     digitalWrite(PIN_ADD_LED, LOW);
   }
+}
+
+bool isBatLow() {
+  return vbat <= BATTERY_BLOCKED_MV;
 }

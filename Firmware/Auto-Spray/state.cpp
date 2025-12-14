@@ -1,6 +1,7 @@
 #include "state.h"
 #include "leds.h"
 #include "spray.h"
+#include "battery.h"
 #include <Arduino.h>
 
 State currentState = STATE_IDLE;
@@ -77,7 +78,11 @@ void updateStateMachine(SprayMode currentMode, bool isLightOn) {
   bool isSprayOnLightOn = digitalRead(PIN_SW_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
   bool isUpdateUI = isAutoMode != isAuto || lastMode != currentMode || isLastSprayOnLightOn != isSprayOnLightOn;
 
-  if (isUpdateUI && currentState != STATE_SPRAY) {
+  if (isBatLow()) {
+    currentState = STATE_BLOCKED;
+  }
+
+  if (!isBatLow() && isUpdateUI && currentState != STATE_SPRAY) {
     resetState();
     currentState = STATE_IDLE;
     lastMode = currentMode;
@@ -85,7 +90,7 @@ void updateStateMachine(SprayMode currentMode, bool isLightOn) {
     isAutoMode = isAuto;
   }
 
-  if (currentState != STATE_SPRAY) {
+  if (!isBatLow() && currentState != STATE_SPRAY) {
     button.update();
   }
 
@@ -172,7 +177,7 @@ void updateStateMachine(SprayMode currentMode, bool isLightOn) {
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     }
 
-    if (now - tBlockStart >= BLOCK_MS) {
+    if (!isBatLow() && now - tBlockStart >= BLOCK_MS) {
       currentState = STATE_IDLE;
       updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     } else if (isButtonPressed && (now - buttonPressStartTime >= BLOCK_RESET_HOLD_MS)) {
