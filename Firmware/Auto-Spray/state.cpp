@@ -74,7 +74,7 @@ void updateStateMachine(SprayMode currentMode, bool isLightOn) {
 
   uint32_t now = millis();
   bool isAuto = currentMode != MODE_MANUAL;
-  bool isSprayOnLightOn = digitalRead(PIN_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
+  bool isSprayOnLightOn = digitalRead(PIN_SW_MODE) == LOW;  // при срабатывании таймера пшик после выключения света или сразу
   bool isUpdateUI = isAutoMode != isAuto || lastMode != currentMode || isLastSprayOnLightOn != isSprayOnLightOn;
 
   if (isUpdateUI && currentState != STATE_SPRAY) {

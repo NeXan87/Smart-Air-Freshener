@@ -15,8 +15,8 @@ void wakeUp() {
   // power.wakeUp();
 }
 
-void sleepWDT() {
-  power.sleep(SLEEP_1024MS);
+void sleepWDT(int time) {
+  power.sleep(time);
 }
 
 void maybeSleep(bool isLightOn) {

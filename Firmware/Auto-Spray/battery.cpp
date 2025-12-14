@@ -9,9 +9,9 @@ uint16_t readBatteryVoltage() {
   uint16_t adc = analogRead(PIN_BATTERY_POINT);
 
   digitalWrite(PIN_BATTERY_EN, LOW);
-
-  float vout_mv = (adc * VCC_ARDUINO) / 1023;
+  float vout_mv = adc * VCC_ARDUINO / 1023;
   uint16_t vbat_mv = (uint16_t)(vout_mv * BATTERY_DIVIDER_RATIO);
+
   return vbat_mv;
 }
 

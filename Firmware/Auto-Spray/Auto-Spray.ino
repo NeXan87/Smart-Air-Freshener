@@ -15,6 +15,7 @@
 
 #if ENABLE_SLEEP_MODE
 #include "sleep.h"
+#include <GyverPower.h>
 #endif
 
 void runStartupSequence() {
@@ -36,11 +37,19 @@ void runStartupSequence() {
   noTone(PIN_BUZZER);  // Выключаем писк
 }
 
+void disableOutputPins() {
+  digitalWrite(PIN_ADD_LED, LOW);
+  digitalWrite(PIN_LED_BUILTIN, LOW);
+  digitalWrite(PIN_MOTOR_IN1, LOW);
+  digitalWrite(PIN_MOTOR_IN2, LOW);
+  digitalWrite(PIN_BATTERY_EN, LOW);
+}
+
 // -----------------------------------------------------------
 // SETUP
 // -----------------------------------------------------------
 void setup() {
-  // Serial.begin(9600);
+  Serial.begin(9600);
 #if USE_OPT3001
   pinMode(PIN_LIGHT, INPUT_PULLUP);
 #else
@@ -56,16 +65,12 @@ void setup() {
   pinMode(PIN_LED_B, OUTPUT);
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_LED_BUILTIN, OUTPUT);
-  pinMode(PIN_MODE, INPUT_PULLUP);
-  pinMode(PIN_SPRAY_1, INPUT_PULLUP);
-  pinMode(PIN_SPRAY_2, INPUT_PULLUP);
+  pinMode(PIN_SW_MODE, INPUT_PULLUP);
+  pinMode(PIN_SW_SPRAY_1, INPUT_PULLUP);
+  pinMode(PIN_SW_SPRAY_2, INPUT_PULLUP);
+  pinMode(PIN_SW_GLOBAL_EN, INPUT_PULLUP);
 
-  digitalWrite(PIN_ADD_LED, LOW);
-  digitalWrite(PIN_LED_BUILTIN, LOW);
-  digitalWrite(PIN_MOTOR_IN1, LOW);
-  digitalWrite(PIN_MOTOR_IN2, LOW);
-  digitalWrite(PIN_BATTERY_EN, LOW);
-
+  disableOutputPins();
   runStartupSequence();
   initStateMachine();
 
@@ -82,6 +87,19 @@ void setup() {
 // LOOP
 // -----------------------------------------------------------
 void loop() {
+  bool isEnabled = digitalRead(PIN_SW_GLOBAL_EN) == LOW;
+
+  if (!isEnabled) {
+    updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
+    disableOutputPins();
+    resetState();
+
+#if ENABLE_SLEEP_MODE
+    sleepWDT(SLEEP_1024MS);
+#endif
+    return;
+  }
+
   SprayMode currentMode = getCurrentMode();
   bool isLightOn = hasLightOn();
 

@@ -7,6 +7,7 @@
 void initStateMachine();
 void updateStateMachine(SprayMode currentMode, bool isLightOn);
 bool hasLightOn();
+void resetState();
 
 extern State currentState;
 extern Bounce button;

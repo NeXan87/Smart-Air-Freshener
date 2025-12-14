@@ -12,8 +12,8 @@ bool checkSprayMode(SprayMode currentMode) {
 }
 
 SprayMode getCurrentMode() {
-  bool d7 = (digitalRead(PIN_SPRAY_1) == LOW);
-  bool d8 = (digitalRead(PIN_SPRAY_2) == LOW);
+  bool d7 = (digitalRead(PIN_SW_SPRAY_1) == LOW);
+  bool d8 = (digitalRead(PIN_SW_SPRAY_2) == LOW);
 
   if (d7 && d8) return MODE_3;  // 3 пшика
   if (d8) return MODE_2;        // 2 пшика
