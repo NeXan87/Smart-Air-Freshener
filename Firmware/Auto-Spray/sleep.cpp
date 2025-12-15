@@ -8,12 +8,8 @@
 #include <GyverPower.h>
 
 void initSleepMode() {
-  // power.hardwareDisable(PWR_UART0 | PWR_TIMER0 | PWR_TIMER1 | PWR_TIMER2);
+  power.hardwareDisable(PWR_I2C | PWR_SPI | PWR_TIMER2 | PWR_USB);
   power.setSleepMode(POWERDOWN_SLEEP);
-}
-
-void wakeUp() {
-  // power.wakeUp();
 }
 
 void sleepWDT(int time) {
@@ -29,9 +25,9 @@ void maybeSleep(bool isLightOn) {
 
   if (!isLightOn && isIdle) {
     attachInterrupt(
-      digitalPinToInterrupt(PIN_BUTTON), wakeUp, FALLING);  // D2 — кнопка
+      digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);
     attachInterrupt(
-      digitalPinToInterrupt(PIN_LIGHT), wakeUp, CHANGE);  // D3 — датчик света
+      digitalPinToInterrupt(PIN_LIGHT), []() {}, CHANGE);
 
     disableOutputPins();
     updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);

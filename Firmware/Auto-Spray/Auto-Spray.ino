@@ -45,6 +45,7 @@ void setup() {
   Serial.begin(9600);
 #if USE_OPT3001
   pinMode(PIN_LIGHT, INPUT_PULLUP);
+  initOpt3001();
 #else
   pinMode(PIN_LIGHT, INPUT);
 #endif
@@ -70,10 +71,6 @@ void setup() {
 
 #if ENABLE_SLEEP_MODE
   initSleepMode();
-#endif
-
-#if USE_OPT3001
-  initOpt3001();
 #endif
 }
 
