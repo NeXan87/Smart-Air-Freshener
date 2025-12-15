@@ -23,6 +23,7 @@ void runStartupSequence() {
   tone(PIN_BUZZER, FREQ_SQUEAKER);  // Включаем писк
 
   digitalWrite(PIN_ADD_LED, HIGH);
+  digitalWrite(PIN_LED_BUILTIN, HIGH);
   updateLed(LED_RED_ON, LED_GREEN_OFF, LED_BLUE_OFF);
   delay(STARTUP_DELAY_MS);
 
@@ -34,6 +35,7 @@ void runStartupSequence() {
 
   updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
   digitalWrite(PIN_ADD_LED, LOW);
+  digitalWrite(PIN_LED_BUILTIN, LOW);
 
   noTone(PIN_BUZZER);  // Выключаем писк
 }
@@ -86,7 +88,7 @@ void loop() {
     resetState();
 
 #if ENABLE_SLEEP_MODE
-    sleepWDT(SLEEP_1024MS);
+    sleepWDT();
 #endif
     return;
   }

@@ -47,6 +47,6 @@ void updateBattery(bool isLightOn) {
 }
 
 bool isBatLow() {
-  return false; // для дебага
+  return false;  // для дебага
   // return vbat <= BATTERY_BLOCKED_MV;
 }

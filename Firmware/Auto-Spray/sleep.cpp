@@ -12,8 +12,8 @@ void initSleepMode() {
   power.setSleepMode(POWERDOWN_SLEEP);
 }
 
-void sleepWDT(int time) {
-  power.sleep(time);
+void sleepWDT() {
+  power.sleep(SLEEP_1024MS);
 }
 
 void maybeSleep(bool isLightOn) {
