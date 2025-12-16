@@ -20,8 +20,9 @@ uint16_t readBatteryVoltage() {
 void updateBattery(bool isLightOn) {
   static uint32_t lastBatteryCheck = 0;
   static bool isBatteryLow = false;
+  static bool isFirstCheck = true;
 
-  if (isLightOn && millis() - lastBatteryCheck >= BATTERY_CHECK_INTERVAL_MS) {
+  if (isFirstCheck || (isLightOn && millis() - lastBatteryCheck >= BATTERY_CHECK_INTERVAL_MS)) {
     vbat = readBatteryVoltage();
 
     if (vbat <= BATTERY_LOW_MV) {
@@ -31,6 +32,7 @@ void updateBattery(bool isLightOn) {
     }
 
     lastBatteryCheck = millis();
+    isFirstCheck = false;
   }
 
   if (isLightOn) {
