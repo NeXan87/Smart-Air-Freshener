@@ -44,7 +44,7 @@ void runStartupSequence() {
 // SETUP
 // -----------------------------------------------------------
 void setup() {
-  // Serial.begin(9600);
+  Serial.begin(9600);
 #if USE_OPT3001
   pinMode(PIN_LIGHT, INPUT_PULLUP);
   initOpt3001();
@@ -55,7 +55,6 @@ void setup() {
   pinMode(PIN_MOTOR_IN1, OUTPUT);
   pinMode(PIN_MOTOR_IN2, OUTPUT);
   pinMode(PIN_ADD_LED, OUTPUT);
-  pinMode(PIN_BATTERY_EN, OUTPUT);
   pinMode(PIN_LED_R, OUTPUT);
   pinMode(PIN_LED_G, OUTPUT);
   pinMode(PIN_LED_B, OUTPUT);

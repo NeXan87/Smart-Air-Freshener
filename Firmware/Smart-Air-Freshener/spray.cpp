@@ -28,16 +28,16 @@ bool runSpray() {
     case FORWARD:
       sprayStep = PAUSE1;
       sprayTimer = now;
-      digitalWrite(PIN_MOTOR_IN1, HIGH);
-      digitalWrite(PIN_MOTOR_IN2, LOW);
+      digitalWrite(PIN_MOTOR_IN2, HIGH);
+      digitalWrite(PIN_MOTOR_IN1, LOW);
       break;
 
     case PAUSE1:
       if (now - sprayTimer >= SPRAY_ON_MS) {
         sprayStep = REVERSE;
         sprayTimer = now;
-        digitalWrite(PIN_MOTOR_IN1, LOW);
         digitalWrite(PIN_MOTOR_IN2, LOW);
+        digitalWrite(PIN_MOTOR_IN1, LOW);
       }
       break;
 
@@ -45,15 +45,15 @@ bool runSpray() {
       if (now - sprayTimer >= SPRAY_PAUSE1_MS) {
         sprayStep = PAUSE2;
         sprayTimer = now;
-        digitalWrite(PIN_MOTOR_IN1, LOW);
-        digitalWrite(PIN_MOTOR_IN2, HIGH);
+        digitalWrite(PIN_MOTOR_IN2, LOW);
+        digitalWrite(PIN_MOTOR_IN1, HIGH);
       }
       break;
 
     case PAUSE2:
       if (now - sprayTimer >= SPRAY_REVERSE_MS) {
-        digitalWrite(PIN_MOTOR_IN1, LOW);
         digitalWrite(PIN_MOTOR_IN2, LOW);
+        digitalWrite(PIN_MOTOR_IN1, LOW);
         if (sprayPulse < pulseCount - 1) {
           sprayStep = REPEAT;
           sprayTimer = now;

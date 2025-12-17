@@ -90,6 +90,8 @@ void updateActivityLed() {
   }
 }
 
+#endif
+
 void updateBatteryLed() {
   static uint32_t lastToggle = 0;
   static bool ledState = false;
@@ -109,5 +111,3 @@ void updateBatteryLed() {
     }
   }
 }
-
-#endif
