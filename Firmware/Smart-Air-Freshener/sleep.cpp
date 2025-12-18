@@ -13,7 +13,9 @@ void initSleepMode() {
 }
 
 void sleepWDT() {
+  disableInputPullups();
   power.sleep(SLEEP_1024MS);
+  enableInputPullups();
 }
 
 void maybeSleep(bool isLightOn) {
@@ -24,6 +26,7 @@ void maybeSleep(bool isLightOn) {
   bool isIdle = (currentState == STATE_IDLE);
 
   if (!isLightOn && isIdle) {
+    disableInputPullups();
     attachInterrupt(
       digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);
     attachInterrupt(
@@ -33,6 +36,7 @@ void maybeSleep(bool isLightOn) {
     updateLed(LED_RED_OFF, LED_GREEN_OFF, LED_BLUE_OFF);
     power.sleep(SLEEP_FOREVER);
 
+    enableInputPullups();
     detachInterrupt(digitalPinToInterrupt(PIN_BUTTON));
     detachInterrupt(digitalPinToInterrupt(PIN_LIGHT));
   }

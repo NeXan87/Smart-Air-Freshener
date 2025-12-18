@@ -13,3 +13,5 @@ bool checkSprayMode(SprayMode mode);
 SprayMode getCurrentMode();
 void disableOutputPins();
 void disableOutputPins();
+void enableInputPullups();
+void disableInputPullups();

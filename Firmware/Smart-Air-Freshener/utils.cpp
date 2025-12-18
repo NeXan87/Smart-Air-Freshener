@@ -26,3 +26,17 @@ void disableOutputPins() {
   digitalWrite(PIN_MOTOR_IN1, LOW);
   digitalWrite(PIN_MOTOR_IN2, LOW);
 }
+
+void enableInputPullups() {
+  pinMode(PIN_SW_SPRAY_1, INPUT_PULLUP);
+  pinMode(PIN_SW_SPRAY_2, INPUT_PULLUP);
+  pinMode(PIN_SW_MODE, INPUT_PULLUP);
+  pinMode(PIN_SW_GLOBAL_EN, INPUT_PULLUP);
+}
+
+void disableInputPullups() {
+  pinMode(PIN_SW_SPRAY_1, INPUT);
+  pinMode(PIN_SW_SPRAY_2, INPUT);
+  pinMode(PIN_SW_MODE, INPUT);
+  pinMode(PIN_SW_GLOBAL_EN, INPUT);
+}
