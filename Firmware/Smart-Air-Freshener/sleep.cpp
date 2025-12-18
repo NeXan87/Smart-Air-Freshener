@@ -4,6 +4,7 @@
 
 #include "sleep.h"
 #include "state.h"
+#include "battery.h"
 #include "leds.h"
 #include <GyverPower.h>
 
@@ -23,8 +24,9 @@ void maybeSleep(bool isLightOn) {
   // - не пшикает
   // - нет блокировки
   bool isIdle = (currentState == STATE_IDLE);
+  bool isFullBlocked = isBatLow() && currentState == STATE_BLOCKED;
 
-  if (!isLightOn && isIdle) {
+  if ((!isLightOn && isIdle) || (!isLightOn && isFullBlocked)) {
     disableInputPullups();
     attachInterrupt(
       digitalPinToInterrupt(PIN_BUTTON), []() {}, FALLING);
