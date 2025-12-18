@@ -2,13 +2,18 @@
 #include "battery.h"
 #include "leds.h"
 #include "state.h"
+#include "utils.h"
 
 uint16_t vbat = 9999;
 
 uint16_t readBatteryVoltage() {
+  enableADC();
+
   uint16_t adc = analogRead(PIN_BATTERY_POINT);
   float vout_mv = adc * VCC_ARDUINO / 1023;
   uint16_t vbat_mv = (uint16_t)(vout_mv * BATTERY_DIVIDER_RATIO);
+
+  disableADC();
 
   return vbat_mv;
 }

@@ -59,11 +59,16 @@ void setup() {
   pinMode(PIN_LED_BUILTIN, OUTPUT);
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   pinMode(PIN_LIGHT, INPUT_PULLUP);
-
+  pinMode(PIN_SW_SPRAY_1, INPUT_PULLUP);
+  pinMode(PIN_SW_SPRAY_2, INPUT_PULLUP);
+  pinMode(PIN_SW_MODE, INPUT_PULLUP);
+  pinMode(PIN_SW_GLOBAL_EN, INPUT_PULLUP);
   enableInputPullups();
   disableOutputPins();
   runStartupSequence();
   initStateMachine();
+  disableHardware();
+  disableADC();
   digitalWrite(PIN_LED_BUILTIN, LOW);
 
 #if ENABLE_SLEEP_MODE

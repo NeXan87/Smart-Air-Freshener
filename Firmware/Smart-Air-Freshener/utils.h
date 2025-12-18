@@ -15,3 +15,6 @@ void disableOutputPins();
 void disableOutputPins();
 void enableInputPullups();
 void disableInputPullups();
+void disableHardware();
+void enableADC();
+void disableADC();

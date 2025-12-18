@@ -1,5 +1,6 @@
 #include "config.h"
 #include "utils.h"
+#include <GyverPower.h>
 
 bool checkSprayMode(SprayMode currentMode) {
   static SprayMode lastSprayMode = MODE_MANUAL;
@@ -39,4 +40,16 @@ void disableInputPullups() {
   pinMode(PIN_SW_SPRAY_2, INPUT);
   pinMode(PIN_SW_MODE, INPUT);
   pinMode(PIN_SW_GLOBAL_EN, INPUT);
+}
+
+void disableHardware() {
+  power.hardwareDisable(PWR_I2C | PWR_SPI | PWR_USB);
+}
+
+void enableADC() {
+  power.hardwareEnable(PWR_ADC);
+}
+
+void disableADC() {
+  power.hardwareDisable(PWR_ADC);
 }

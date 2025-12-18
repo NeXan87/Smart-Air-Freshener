@@ -8,7 +8,6 @@
 #include <GyverPower.h>
 
 void initSleepMode() {
-  power.hardwareDisable(PWR_I2C | PWR_SPI | PWR_USB);
   power.setSleepMode(POWERDOWN_SLEEP);
 }
 
