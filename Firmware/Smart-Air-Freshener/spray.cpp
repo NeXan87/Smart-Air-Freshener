@@ -34,7 +34,11 @@ bool runSpray() {
 
     case PAUSE1:
       if (now - sprayTimer >= SPRAY_ON_MS) {
-        sprayStep = REVERSE;
+        if (SPRAY_REVERSE_EN) {
+          sprayStep = REVERSE;
+        } else {
+          sprayStep = PAUSE2;
+        }
         sprayTimer = now;
         digitalWrite(PIN_MOTOR_IN2, LOW);
         digitalWrite(PIN_MOTOR_IN1, LOW);
